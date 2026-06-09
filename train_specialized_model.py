@@ -51,7 +51,9 @@ DISEASE_MAP = {
     "Hypothyroidism": ["weight_gain", "tiredness"],
     "Migraine": ["severe_headache"],
     "Eczema": ["itchy_skin"],
-    "Psoriasis": ["skin_patches"]
+    "Psoriasis": ["skin_patches"],
+    "Skin Cancer": ["asymmetrical_skin_lesion", "irregular_lesion_border", "lesion_color_variation", "lesion_diameter_growth"],
+    "Breast Cancer": ["breast_lump", "nipple_discharge", "breast_skin_dimpling", "armpit_swelling"]
 }
 
 # Get unique list of symptoms (features)

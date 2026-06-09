@@ -12,7 +12,7 @@ MediAssist AI is a premium, AI-powered healthcare assistant and diagnostic intel
 *   Features entrance walk-in and greeting animations.
 
 ### 2. 🎛️ Core Diagnostic Modules
-*   **Symptom Intelligence:** Multi-select symptom checklists mapped to a PyTorch Multi-Layer Perceptron (MLP) classifier, Random Forest Ensemble, and Decision Tree to evaluate **30 target diseases** with high precision.
+*   **Symptom Intelligence:** Multi-select symptom checklists mapped to a PyTorch Multi-Layer Perceptron (MLP) classifier, Random Forest Ensemble, and Decision Tree to evaluate **32 target diseases** (including **Skin Cancer** and **Breast Cancer** detections) with high precision.
 *   **Medical Report Summarizer:** Instantly parses uploaded medical PDF reports and generates a clean clinical breakdown.
 *   **Skin & Eye Condition Scanner:** Deep Learning screening powered by a fine-tuned ResNet-18 model to analyze dermatological and ocular photographs for quick diagnostic flags.
 
@@ -26,7 +26,7 @@ MediAssist AI is a premium, AI-powered healthcare assistant and diagnostic intel
 ## 📅 Architecture & ML Models
 This project showcases comparative machine learning, deep learning, and report compiler technologies:
 *   **Decision Tree & Random Forest:** Built using `scikit-learn` to establish baseline diagnostic checks.
-*   **PyTorch MLP Network:** Multi-layer neural network with Dropout, ReLU activations, and Adam optimization for specialized disease mapping.
+*   **PyTorch MLP Network:** Multi-layer neural network with Dropout, ReLU activations, and Adam optimization for specialized disease mapping (including specialized oncology screening rules for breast and skin cancer signs).
 *   **Fine-tuned ResNet-18:** PyTorch CNN trained to categorize skin and ocular conditions from clinical image feeds.
 *   **PDF Compiler:** Built using `ReportLab` to structure custom clinical reports dynamically.
 

@@ -64,7 +64,9 @@ def get_test_recommendations(disease):
         "Malignant Melanoma": ["Dermoscopy Examination", "Excision Skin Biopsy (Critical)", "Sentinel Lymph Node Biopsy"],
         "Basal Cell Carcinoma": ["Skin Biopsy (Diagnostic)", "Shave or Punch Biopsy"],
         "Herpes Simplex Labialis": ["Viral Culture", "HSV-1 PCR Test"],
-        "Alopecia Areata": ["Scalp Biopsy", "Thyroid & Autoimmune blood screens"]
+        "Alopecia Areata": ["Scalp Biopsy", "Thyroid & Autoimmune blood screens"],
+        "Skin Cancer": ["Excision Skin Biopsy", "Dermoscopy", "Sentinel Lymph Node Biopsy"],
+        "Breast Cancer": ["Diagnostic Mammogram", "Breast Ultrasound", "Core Needle Biopsy", "Breast MRI"]
     }
     
     return scans_map.get(disease, ["General Routine Blood Work", "Clinical Evaluation"])
@@ -80,16 +82,22 @@ def check_critical_alert(disease):
         "Transient Ischemic Attack (TIA)", 
         "Gastrointestinal Bleeding"
     ]
-    cancer_diseases = [
+    cancer_diseases_skin = [
         "Malignant Melanoma", 
         "Basal Cell Carcinoma", 
-        "Actinic Keratosis"
+        "Actinic Keratosis",
+        "Skin Cancer"
+    ]
+    cancer_diseases_breast = [
+        "Breast Cancer"
     ]
     
     if disease in critical_diseases:
         return "CRITICAL EMERGENCY ALERT"
-    elif disease in cancer_diseases:
+    elif disease in cancer_diseases_skin:
         return "ONCOLOGY SCREENING WARNING (POSSIBLE SKIN CANCER)"
+    elif disease in cancer_diseases_breast:
+        return "ONCOLOGY SCREENING WARNING (POSSIBLE BREAST CANCER)"
     return None
 
 def create_clinical_report(output_filename, patient_name, patient_age, symptoms_list, symptom_disease, symptom_prob, image_disease=None, image_prob=None, image_path=None):

@@ -112,7 +112,15 @@ class MedicalChatbot:
             "silver_like_dusting": ["silver scales", "scaly skin", "silver like dusting"],
             "small_dents_in_nails": ["nail pits", "dents in nails"],
             "blister": ["blister", "blisters", "fluid filled bumps"],
-            "red_sore_around_nose": ["red sores around nose", "crusty sores around mouth"]
+            "red_sore_around_nose": ["red sores around nose", "crusty sores around mouth"],
+            "asymmetrical_skin_lesion": ["asymmetrical skin lesion", "asymmetric mole", "irregular mole", "asymmetric spot"],
+            "irregular_lesion_border": ["irregular lesion border", "ragged border", "blurred mole border"],
+            "lesion_color_variation": ["lesion color variation", "mole changing color", "multi-colored mole"],
+            "lesion_diameter_growth": ["lesion diameter growth", "growing mole", "mole larger than 6mm"],
+            "breast_lump": ["breast lump", "lump in breast", "hard mass in breast"],
+            "nipple_discharge": ["nipple discharge", "fluid from nipple", "bleeding nipple"],
+            "breast_skin_dimpling": ["breast skin dimpling", "skin dimpling", "puckered breast skin", "orange peel skin"],
+            "armpit_swelling": ["armpit swelling", "swollen armpit", "lump under armpit", "armpit lump"]
         }
         return mapping
         
