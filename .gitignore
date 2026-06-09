@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+temp/
+*.log
+.system_generated/
+test_report.pdf
+MediAssist_Clinical_Report.pdf
