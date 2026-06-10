@@ -224,7 +224,7 @@ def create_clinical_report(output_filename, patient_name, patient_age, symptoms_
     story.append(Paragraph("SYMPTOM ANALYSIS & TABULAR CLASSIFIER INFERENCE", header_style))
     
     # Format symptom list
-    symptoms_text = ", ".join([s.replace("_", " ").title() for s in symptoms_list]) if symptoms_list else "No structured symptoms entered."
+    symptoms_text = ", ".join(["Asymptomatic (No Symptoms)" if s == "asymptomatic" else s.replace("_", " ").title() for s in symptoms_list]) if symptoms_list else "No structured symptoms entered."
     
     symptom_table_data = [
         [Paragraph("Reported Symptoms:", label_style), Paragraph(symptoms_text, styles['Normal'])],

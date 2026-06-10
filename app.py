@@ -16,6 +16,11 @@ from train_specialized_model import SpecializedMLP
 from llm_inference import MedicalChatbot
 from generate_report import get_test_recommendations, check_critical_alert
 
+def format_symptom_name(sym):
+    if sym == "asymptomatic":
+        return "Asymptomatic (No Symptoms)"
+    return sym.replace("_", " ").title()
+
 # Page configuration with premium medical SaaS design aesthetics
 st.set_page_config(
     page_title="MediAssist AI - Intelligent Patient Platform",
@@ -580,7 +585,7 @@ if st.session_state.show_chatbot:
                     
                 tests = get_test_recommendations(mlp_disease)
                 tests_str = " or ".join(tests) if tests else "routine clinical checkups"
-                symptoms_str = ", ".join([s.replace("_", " ").title() for s in active_symptoms])
+                symptoms_str = ", ".join([format_symptom_name(s) for s in active_symptoms])
                 
                 reply = (
                     f"Stay strong! 💖 Based on your recorded symptoms ({symptoms_str}), "
@@ -596,7 +601,7 @@ if st.session_state.show_chatbot:
                     st.session_state.active_symptoms.append(s)
             
             active_symptoms = st.session_state.active_symptoms
-            symptoms_str = ", ".join([s.replace("_", " ").title() for s in active_symptoms]) if active_symptoms else ""
+            symptoms_str = ", ".join([format_symptom_name(s) for s in active_symptoms]) if active_symptoms else ""
             
             if st.session_state.prompt_count == 1:
                 reply = (
@@ -639,7 +644,7 @@ with card_col1:
         options=models_data["features"],
         default=st.session_state.active_symptoms,
         placeholder="Type symptoms here...",
-        format_func=lambda s: s.replace("_", " ").title(),
+        format_func=format_symptom_name,
         key="symptom_select_input"
     )
     st.session_state.active_symptoms = selected_symptoms
@@ -877,7 +882,7 @@ if st.session_state.pdf_summary:
 # Vitals Summary from Checklist
 st.markdown("#### 🔍 Symptom Questionnaire & Checkups")
 if st.session_state.active_symptoms:
-    symptoms_formatted = ", ".join([s.replace("_", " ").title() for s in st.session_state.active_symptoms])
+    symptoms_formatted = ", ".join([format_symptom_name(s) for s in st.session_state.active_symptoms])
     st.write(f"**Patient Entered Symptoms:** {symptoms_formatted}")
 else:
     st.write("*No symptoms selected in the checklist.*")
