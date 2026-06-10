@@ -310,6 +310,10 @@ st.markdown(f"""
         border-color: #3B82F6 !important;
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
     }}
+    .stMultiSelect [data-baseweb="tag"] {{
+        max-width: none !important;
+        white-space: normal !important;
+    }}
     .stFileUploader > div {{
         background-color: #F8FAFC !important;
         border: 2px dashed #CBD5E1 !important;
