@@ -856,6 +856,54 @@ with card_col3:
                 st.rerun()
 
 # =========================================================
+# CLINICAL STATUS & SCAN RECOMMENDATIONS (MIDDLE SECTION)
+# =========================================================
+st.write("---")
+st.markdown('<div class="report-card"><h3 style="margin:0; color:#1E3A8A; text-align:center; font-weight:700; font-size:1.4rem;">📊 Clinical Status & Scan Recommendations</h3></div>', unsafe_allow_html=True)
+
+mid_col1, mid_col2, mid_col3 = st.columns(3)
+with mid_col1:
+    st.markdown("#### 🔍 Symptom Questionnaire & Checkups")
+    if st.session_state.active_symptoms:
+        symptoms_formatted = ", ".join([format_symptom_name(s) for s in st.session_state.active_symptoms])
+        st.write(f"**Patient Entered Symptoms:** {symptoms_formatted}")
+    else:
+        st.write("No symptoms selected in the checklist.")
+        
+    if st.session_state.predictions:
+        s_disease = st.session_state.predictions["mlp_disease"]
+        s_prob = st.session_state.predictions["mlp_conf"]
+        st.write(f"**MLP Classifier Prediction:** {s_disease} ({s_prob:.1f}% confidence)")
+    else:
+        st.write("Pending symptom analysis run.")
+
+with mid_col2:
+    st.markdown("#### 📷 Skin & Eye Diagnostic screening")
+    if st.session_state.image_prediction:
+        i_disease = st.session_state.image_prediction["disease"]
+        i_prob = st.session_state.image_prediction["confidence"]
+        st.write(f"**Image Model Prediction:** {i_disease} ({i_prob:.1f}% confidence)")
+    else:
+        st.write("Pending skin/eye image scan.")
+
+with mid_col3:
+    st.markdown("#### 🩺 Recommended Medical Scans & Tests")
+    s_disease_val = st.session_state.predictions["mlp_disease"] if st.session_state.predictions else "Undiagnosed"
+    i_disease_val = st.session_state.image_prediction["disease"] if st.session_state.image_prediction else None
+    
+    recommended_tests = set()
+    if s_disease_val != "Undiagnosed":
+        recommended_tests.update(get_test_recommendations(s_disease_val))
+    if i_disease_val:
+        recommended_tests.update(get_test_recommendations(i_disease_val))
+        
+    if recommended_tests:
+        for test in recommended_tests:
+            st.write(f"✔ **{test}**")
+    else:
+        st.write("Enter clinical indicators above to view recommended scans.")
+
+# =========================================================
 # UNIFIED RESULTS DASHBOARD SECTION
 # =========================================================
 st.markdown('<div id="dashboard"></div>', unsafe_allow_html=True)
@@ -942,53 +990,20 @@ if st.session_state.pdf_summary:
     st.markdown(st.session_state.pdf_summary)
     st.write("")
 
-# Vitals Summary from Checklist
-st.markdown("#### 🔍 Symptom Questionnaire & Checkups")
-if st.session_state.active_symptoms:
-    symptoms_formatted = ", ".join([format_symptom_name(s) for s in st.session_state.active_symptoms])
-    st.write(f"**Patient Entered Symptoms:** {symptoms_formatted}")
-else:
-    st.write("*No symptoms selected in the checklist.*")
-
+# Extract diagnostic variables for alerts and PDF report
 if st.session_state.predictions:
     symptom_disease = st.session_state.predictions["mlp_disease"]
     symptom_prob = st.session_state.predictions["mlp_conf"]
-    st.write(f"**MLP Classifier Prediction:** {symptom_disease} ({symptom_prob:.1f}% confidence)")
 else:
     symptom_disease = "Undiagnosed"
     symptom_prob = 0.0
-    st.write("*Pending symptom analysis run.*")
 
-st.write("")
-
-# Image Scanning Vitals
-st.markdown("#### 📷 Skin & Eye Diagnostic screening")
 if st.session_state.image_prediction:
     image_disease = st.session_state.image_prediction["disease"]
     image_prob = st.session_state.image_prediction["confidence"]
-    st.write(f"**Image Model Prediction:** {image_disease} ({image_prob:.1f}% confidence)")
 else:
     image_disease = None
     image_prob = None
-    st.write("*Pending skin/eye image scan.*")
-
-st.write("")
-
-# Clinical recommendations & Scans
-st.markdown("#### 🩺 Recommended Medical Scans & Tests")
-recommended_tests = set()
-if symptom_disease != "Undiagnosed":
-    recommended_tests.update(get_test_recommendations(symptom_disease))
-if image_disease:
-    recommended_tests.update(get_test_recommendations(image_disease))
-
-if recommended_tests:
-    for test in recommended_tests:
-        st.write(f"✔ **{test}**")
-else:
-    st.write("*Enter clinical indicators above to view recommended scans.*")
-
-st.write("")
 
 # Emergency or Oncology Alerts
 alerts = []
