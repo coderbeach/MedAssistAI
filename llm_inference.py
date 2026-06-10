@@ -239,8 +239,31 @@ class MedicalChatbot:
                 mlp_out = models_data["mlp"](input_tensor)
                 mlp_prob = torch.softmax(mlp_out, dim=1)[0].cpu().numpy()
                 mlp_pred_idx = np.argmax(mlp_prob)
-                mlp_disease = models_data["classes"][str(mlp_pred_idx)]
                 mlp_confidence = mlp_prob[mlp_pred_idx] * 100
+                
+            if mlp_confidence < 25.0:
+                dt_disease = "Indistinguishable Profile"
+                rf_disease = "Indistinguishable Profile"
+                mlp_disease = "Indistinguishable Profile"
+                dt_confidence = 0.0
+                rf_confidence = 0.0
+                mlp_confidence = 0.0
+                
+                reply = (
+                    f"I noted your symptoms, but they are too indistinguishable or unrecognized as a standard clinical pattern. "
+                    f"Please refine your symptoms or consult a physician for official diagnostic evaluation. Stay strong! 💖"
+                )
+                predictions = {
+                    "dt_disease": dt_disease,
+                    "dt_conf": dt_confidence,
+                    "rf_disease": rf_disease,
+                    "rf_conf": rf_confidence,
+                    "mlp_disease": mlp_disease,
+                    "mlp_conf": mlp_confidence
+                }
+                return reply, active_symptoms, predictions, image_prediction, pdf_summary
+            else:
+                mlp_disease = models_data["classes"][str(mlp_pred_idx)]
                 
             predictions = {
                 "dt_disease": dt_disease,
@@ -321,39 +344,56 @@ class MedicalChatbot:
                         if sym in active_symptoms:
                             logits[idx] += boost_value
                             
-                # Apply temperature scaling T=0.12
-                scaled_logits = logits / 0.12
-                exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
-                probs = exp_logits / np.sum(exp_logits)
+                # Calculate raw confidence prior to temperature scaling to check for irrelevant/indistinguishable images
+                raw_probs = np.exp(logits - np.max(logits)) / np.sum(np.exp(logits - np.max(logits)))
+                raw_max_prob = np.max(raw_probs)
                 
-                pred_idx = np.argmax(probs)
-                pred_disease = models_data["image_classes"][str(pred_idx)]
-                pred_conf = max(90.0, probs[pred_idx] * 100)
-                if pred_conf > 99.5:
-                    pred_conf = 99.5
-                    
-                image_prediction = {
-                    "disease": pred_disease,
-                    "confidence": pred_conf
-                }
-                
-                tests = get_test_recommendations(pred_disease)
-                tests_str = " or ".join(tests) if tests else "clinical assessment"
-                critical_msg = check_critical_alert(pred_disease)
-                alert_prefix = f"⚠️ {critical_msg}: " if critical_msg else ""
-                
-                if pred_disease == "Suspicious skin lesion":
-                    advice = "I highly recommend visiting a doctor soon for an excision skin biopsy."
-                elif pred_disease in ["Conjunctivitis", "Stye"]:
-                    advice = "I highly recommend consulting an optometrist or ophthalmologist for appropriate eye drops."
+                if raw_max_prob < 0.22:
+                    pred_disease = "Image cannot be identified"
+                    pred_conf = 0.0
+                    image_prediction = {
+                        "disease": "Image cannot be identified",
+                        "confidence": 0.0
+                    }
+                    reply = (
+                        f"📷 **Baymax Vision Scanner Active...**\n\n"
+                        f"❌ **Scan Error:** The uploaded image could not be identified as a clinical skin or eye lesion. "
+                        f"It appears to be irrelevant or too indistinguishable. Please upload a clear clinical macro photo. Stay strong! 💖"
+                    )
                 else:
-                    advice = "I suggest seeing a dermatologist soon for professional verification."
+                    # Apply temperature scaling T=0.12
+                    scaled_logits = logits / 0.12
+                    exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
+                    probs = exp_logits / np.sum(exp_logits)
                     
-                reply = (
-                    f"📷 **Baymax Vision Scanner Active...**\n\n"
-                    f"I have scanned the uploaded clinical image. It matches **{pred_disease}** (model confidence: {pred_conf:.1f}%).\n\n"
-                    f"{alert_prefix}To confirm this screening, I recommend a **{tests_str}**. {advice} Stay strong! 💖"
-                )
+                    pred_idx = np.argmax(probs)
+                    pred_disease = models_data["image_classes"][str(pred_idx)]
+                    pred_conf = max(90.0, probs[pred_idx] * 100)
+                    if pred_conf > 99.5:
+                        pred_conf = 99.5
+                        
+                    image_prediction = {
+                        "disease": pred_disease,
+                        "confidence": pred_conf
+                    }
+                    
+                    tests = get_test_recommendations(pred_disease)
+                    tests_str = " or ".join(tests) if tests else "clinical assessment"
+                    critical_msg = check_critical_alert(pred_disease)
+                    alert_prefix = f"⚠️ {critical_msg}: " if critical_msg else ""
+                    
+                    if pred_disease == "Suspicious skin lesion":
+                        advice = "I highly recommend visiting a doctor soon for an excision skin biopsy."
+                    elif pred_disease in ["Conjunctivitis", "Stye"]:
+                        advice = "I highly recommend consulting an optometrist or ophthalmologist for appropriate eye drops."
+                    else:
+                        advice = "I suggest seeing a dermatologist soon for professional verification."
+                        
+                    reply = (
+                        f"📷 **Baymax Vision Scanner Active...**\n\n"
+                        f"I have scanned the uploaded clinical image. It matches **{pred_disease}** (model confidence: {pred_conf:.1f}%).\n\n"
+                        f"{alert_prefix}To confirm this screening, I recommend a **{tests_str}**. {advice} Stay strong! 💖"
+                    )
             except Exception as e:
                 reply = f"Error scanning image: {e}."
                 
