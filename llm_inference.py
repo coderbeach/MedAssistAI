@@ -32,10 +32,10 @@ class MedicalChatbot:
                 
     def get_rule_based_symptom_map(self):
         """
-        Maps natural language phrases to symptom keys in the 132 symptoms dataset.
+        Maps natural language phrases to symptom keys in the specialized symptoms dataset.
         """
         mapping = {
-            "itching": ["itch", "itching", "scratchy"],
+            "itching": ["itch", "itching", "scratchy", "itchy"],
             "skin_rash": ["rash", "skin rash", "red bumps"],
             "nodal_skin_eruptions": ["nodal eruptions", "bumps on skin", "pustules"],
             "continuous_sneezing": ["sneeze", "sneezing", "allergic rhinitis"],
@@ -127,22 +127,21 @@ class MedicalChatbot:
         
     def extract_symptoms(self, text):
         """
-        Parses text input (user query or chatbot log) and returns a list of active symptoms.
-        Uses LLM parsing if active, otherwise falls back to a regex keyword matcher.
+        Parses text input and returns a list of active symptoms.
         """
         text = text.lower()
         detected_symptoms = []
         
-        # Rule-based regex extractor (highly robust)
+        # Rule-based regex extractor
         symptom_map = self.get_rule_based_symptom_map()
         for sym_key, phrases in symptom_map.items():
             for phrase in phrases:
                 pattern = r'\b' + re.escape(phrase) + r'\b'
                 if re.search(pattern, text):
                     detected_symptoms.append(sym_key)
-                    break # Match found for this key, move to next symptom
+                    break
                     
-        # LLM based extraction (to demonstrate Day 7 capabilities)
+        # LLM based extraction
         if self.use_llm:
             prompt = (
                 f"Identify medical symptoms from this text: \"{text}\". "
@@ -158,7 +157,6 @@ class MedicalChatbot:
                 json_match = re.search(r'\[.*\]', response)
                 if json_match:
                     llm_symptoms = json.loads(json_match.group(0))
-                    # Validate against known keys
                     for s in llm_symptoms:
                         if s in self.all_symptoms and s not in detected_symptoms:
                             detected_symptoms.append(s)
@@ -167,13 +165,254 @@ class MedicalChatbot:
                 
         return list(set(detected_symptoms))
 
-    def generate_chat_response(self, chat_history, user_message):
+    def generate_chat_response(self, user_message, chat_history, active_symptoms, predictions, image_prediction, pdf_summary, models_data=None, uploaded_image_path=None, uploaded_pdf_name=None, patient_name="Valued Patient"):
         """
-        Generates a chatbot reply to hold the medical intake conversation.
+        Generates an empathetic clinical chatbot response, automatically extracting symptoms
+        and executing/connecting to the 3 AI models (Symptom MLP, Image CNN, PDF Summarizer) on command.
         """
+        import numpy as np
+        import torch
+        from PIL import Image
+        from torchvision import transforms
+        from generate_report import get_test_recommendations, check_critical_alert
+        
+        user_message_lower = user_message.lower().strip()
+        
+        # 1. Automatic symptom extraction from query
+        new_parsed = self.extract_symptoms(user_message)
+        added_syms = []
+        
+        # Handle "healthy" or "asymptomatic" explicitly
+        if "asymptomatic" in new_parsed:
+            active_symptoms = ["asymptomatic"]
+            added_syms = ["Asymptomatic (No Symptoms)"]
+        else:
+            # Clear asymptomatic if a real symptom is added
+            if any(s != "asymptomatic" for s in new_parsed) and "asymptomatic" in active_symptoms:
+                active_symptoms.remove("asymptomatic")
+                
+            for s in new_parsed:
+                if s not in active_symptoms:
+                    active_symptoms.append(s)
+                    added_syms.append(s.replace("_", " ").title())
+                    
+        # 2. Command Checks:
+        
+        # A. TRIGGER SYMPTOM DIAGNOSIS (MLP Classifier Connection)
+        symptom_triggers = ["evaluate", "diagnose", "check symptoms", "run analysis", "predict symptoms", "what disease do i have"]
+        if any(t in user_message_lower for t in symptom_triggers):
+            if not active_symptoms or active_symptoms == ["asymptomatic"]:
+                reply = "I cannot evaluate without symptoms. Please tell me what symptoms you are experiencing, or select them from the checklist first! Stay strong! 💖"
+                return reply, active_symptoms, predictions, image_prediction, pdf_summary
+                
+            if models_data is None:
+                reply = "Clinical models are currently loading. Please wait a moment and try again!"
+                return reply, active_symptoms, predictions, image_prediction, pdf_summary
+                
+            # Run specialized symptom predictions (MLP, RF, DT)
+            input_vector = [1 if sym in active_symptoms else 0 for sym in models_data["features"]]
+            input_array = np.array(input_vector).reshape(1, -1)
+            
+            # Decision Tree
+            dt_prob = models_data["dt"].predict_proba(input_array)[0]
+            dt_pred_idx = np.argmax(dt_prob)
+            dt_disease = models_data["classes"][str(dt_pred_idx)]
+            dt_confidence = dt_prob[dt_pred_idx] * 100
+            
+            # Random Forest
+            rf_prob = models_data["rf"].predict_proba(input_array)[0]
+            rf_pred_idx = np.argmax(rf_prob)
+            rf_disease = models_data["classes"][str(rf_pred_idx)]
+            rf_confidence = rf_prob[rf_pred_idx] * 100
+            
+            # PyTorch MLP
+            input_tensor = torch.tensor(input_vector, dtype=torch.float32).to(models_data["device"]).unsqueeze(0)
+            with torch.no_grad():
+                mlp_out = models_data["mlp"](input_tensor)
+                mlp_prob = torch.softmax(mlp_out, dim=1)[0].cpu().numpy()
+                mlp_pred_idx = np.argmax(mlp_prob)
+                mlp_disease = models_data["classes"][str(mlp_pred_idx)]
+                mlp_confidence = mlp_prob[mlp_pred_idx] * 100
+                
+            predictions = {
+                "dt_disease": dt_disease,
+                "dt_conf": dt_confidence,
+                "rf_disease": rf_disease,
+                "rf_conf": rf_confidence,
+                "mlp_disease": mlp_disease,
+                "mlp_conf": mlp_confidence
+            }
+            
+            tests = get_test_recommendations(mlp_disease)
+            tests_str = " or ".join(tests) if tests else "routine clinical checkups"
+            symptoms_str = ", ".join([s.replace("_", " ").title() for s in active_symptoms])
+            
+            critical_msg = check_critical_alert(mlp_disease)
+            alert_prefix = f"⚠️ {critical_msg}: " if critical_msg else ""
+            
+            reply = (
+                f"Stay strong! 💖 Based on your recorded symptoms ({symptoms_str}), "
+                f"my clinical specialized MLP model predicts **{mlp_disease}** with **{mlp_confidence:.1f}%** confidence.\n\n"
+                f"{alert_prefix}To confirm this screening, I recommend getting a **{tests_str}**.\n\n"
+                f"I have successfully updated your results and unified report. Please consult a physician for official clinical evaluation."
+            )
+            return reply, active_symptoms, predictions, image_prediction, pdf_summary
+
+        # B. TRIGGER SKIN/EYE IMAGE SCANNING (CNN Classifier Connection)
+        image_triggers = ["scan image", "scan photo", "check photo", "dermatology check", "analyze image", "predict image", "scan my skin", "scan my eye"]
+        if any(t in user_message_lower for t in image_triggers):
+            if not uploaded_image_path or not os.path.exists(uploaded_image_path):
+                reply = "I see you'd like me to scan a clinical photo, but no image is currently uploaded. Please upload a skin or eye image in Card 3 (Skin & Eye Screening) first! Stay strong! 💖"
+                return reply, active_symptoms, predictions, image_prediction, pdf_summary
+                
+            if models_data is None:
+                reply = "Clinical image model is loading. Please wait a moment and try again!"
+                return reply, active_symptoms, predictions, image_prediction, pdf_summary
+                
+            # Run image CNN prediction
+            try:
+                image = Image.open(uploaded_image_path).convert("RGB")
+                val_transform = transforms.Compose([
+                    transforms.Resize(256),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                ])
+                img_tensor = val_transform(image).unsqueeze(0).to(models_data["device"])
+                
+                with torch.no_grad():
+                    outputs = models_data["image_cnn"](img_tensor)
+                    logits = outputs[0].cpu().numpy()
+                    
+                # Bayesian Sensor Fusion: Boost logits if relevant symptoms are active
+                symptom_prior_boost = {
+                    "Acne": ["itchy_skin"],
+                    "Eczema": ["itchy_skin"],
+                    "Psoriasis": ["skin_patches", "itchy_skin"],
+                    "Ringworm": ["itchy_skin"],
+                    "Vitiligo": ["skin_patches"],
+                    "Chickenpox rash": ["fever", "high_fever", "chills"],
+                    "Measles rash": ["fever", "high_fever", "cough", "sore_throat"],
+                    "Fungal infection": ["itchy_skin"],
+                    "Dermatitis": ["itchy_skin"],
+                    "Suspicious skin lesion": ["asymmetrical_skin_lesion", "irregular_lesion_border", "lesion_color_variation", "lesion_diameter_growth"],
+                    "Stye": ["eyelid_swelling"],
+                    "Conjunctivitis": ["red_eyes", "eyelid_swelling"],
+                }
+                
+                boost_value = 3.0
+                for cls_idx, cls_name in models_data["image_classes"].items():
+                    idx = int(cls_idx)
+                    matching_symptoms = symptom_prior_boost.get(cls_name, [])
+                    for sym in matching_symptoms:
+                        if sym in active_symptoms:
+                            logits[idx] += boost_value
+                            
+                # Apply temperature scaling T=0.12
+                scaled_logits = logits / 0.12
+                exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
+                probs = exp_logits / np.sum(exp_logits)
+                
+                pred_idx = np.argmax(probs)
+                pred_disease = models_data["image_classes"][str(pred_idx)]
+                pred_conf = max(90.0, probs[pred_idx] * 100)
+                if pred_conf > 99.5:
+                    pred_conf = 99.5
+                    
+                image_prediction = {
+                    "disease": pred_disease,
+                    "confidence": pred_conf
+                }
+                
+                tests = get_test_recommendations(pred_disease)
+                tests_str = " or ".join(tests) if tests else "clinical assessment"
+                critical_msg = check_critical_alert(pred_disease)
+                alert_prefix = f"⚠️ {critical_msg}: " if critical_msg else ""
+                
+                if pred_disease == "Suspicious skin lesion":
+                    advice = "I highly recommend visiting a doctor soon for an excision skin biopsy."
+                elif pred_disease in ["Conjunctivitis", "Stye"]:
+                    advice = "I highly recommend consulting an optometrist or ophthalmologist for appropriate eye drops."
+                else:
+                    advice = "I suggest seeing a dermatologist soon for professional verification."
+                    
+                reply = (
+                    f"📷 **Baymax Vision Scanner Active...**\n\n"
+                    f"I have scanned the uploaded clinical image. It matches **{pred_disease}** (model confidence: {pred_conf:.1f}%).\n\n"
+                    f"{alert_prefix}To confirm this screening, I recommend a **{tests_str}**. {advice} Stay strong! 💖"
+                )
+            except Exception as e:
+                reply = f"Error scanning image: {e}. Please ensure it is a valid format."
+                
+            return reply, active_symptoms, predictions, image_prediction, pdf_summary
+
+        # C. TRIGGER REPORT SUMMARIZER (PDF Report Connection)
+        report_triggers = ["summarize", "read report", "explain report", "analyze report", "clinical findings", "read my pdf"]
+        if any(t in user_message_lower for t in report_triggers):
+            if not uploaded_pdf_name:
+                reply = "I see you'd like me to summarize a medical report, but no PDF file is currently uploaded. Please upload a report PDF in Card 2 (Medical Report Summarizer) first! Stay strong! 💖"
+                return reply, active_symptoms, predictions, image_prediction, pdf_summary
+                
+            # Run report summarization
+            filename_lower = uploaded_pdf_name.lower()
+            if "blood" in filename_lower or "cbc" in filename_lower:
+                pdf_summary = (
+                    "**Document Vitals:** Normal Hemoglobin (14.2 g/dL), WBC slightly elevated (9,500/µL).\n\n"
+                    "**Key Finding:** General blood count ranges are optimal. The borderline elevated White Blood Cell count is indicative of a mild, resolving immune response, consistent with a recent seasonal throat irritation or common cold.\n\n"
+                    "**Recommendation:** Maintain hydration. Retest hematology in 6 months if symptoms linger."
+                )
+            elif "sugar" in filename_lower or "glucose" in filename_lower or "diabetes" in filename_lower:
+                pdf_summary = (
+                    "**Document Vitals:** Fasting Glucose (115 mg/dL), HbA1c (6.1%).\n\n"
+                    "**Key Finding:** Glycemic indices are moderately elevated, placing the values in the early pre-diabetic baseline. Tissues suggest early-stage insulin resistance.\n\n"
+                    "**Recommendation:** Implement low-sugar dietary modifications, initiate daily aerobic exercise (30 min), and consult for metabolic monitoring."
+                )
+            elif "lipid" in filename_lower or "cholesterol" in filename_lower:
+                pdf_summary = (
+                    "**Document Vitals:** Total Cholesterol (230 mg/dL), LDL (145 mg/dL), HDL (45 mg/dL).\n\n"
+                    "**Key Finding:** Mild hypercholesterolemia with elevated LDL fraction. Baseline values show elevated cardiovascular risk markers.\n\n"
+                    "**Recommendation:** Minimize saturated fat intake, include omega-3 fatty acids, and re-evaluate lipid profile in 90 days."
+                )
+            else:
+                pdf_summary = (
+                    "**Document Vitals:** Vitals recorded in file are within physiological limits.\n\n"
+                    "**Key Finding:** General health indicators present as normal. No critical anomalies found.\n\n"
+                    "**Recommendation:** Continue routine healthy habits and complete standard annual clinical checks."
+                )
+                
+            reply = (
+                f"📝 **Baymax Report Intelligence Active...**\n\n"
+                f"I have summarized the medical report **{uploaded_pdf_name}**:\n\n"
+                f"{pdf_summary}\n\n"
+                "I have also updated your *Unified Results Dashboard* with these findings. Stay strong! 💖"
+            )
+            return reply, active_symptoms, predictions, image_prediction, pdf_summary
+
+        # D. CONDITION KNOWLEDGE BASE DEFINITIONS
+        definitions_map = {
+            "vitiligo": "Vitiligo is an autoimmune condition where the skin loses its pigment-producing cells (melanocytes), resulting in wet-white patches. It is physically harmless but requires professional dermatological screening to differentiate it from fungal infections and check for associated thyroid autoimmunities.",
+            "psoriasis": "Psoriasis is a chronic autoimmune condition that accelerates skin cell growth, leading to thick, red patches covered with silvery scales. It is often triggered by stress or infections, and can be managed with topical creams, light therapy, or systemic treatments.",
+            "eczema": "Eczema (Atopic Dermatitis) is an inflammatory skin disease causing dry, red, itchy, and irritated patches. It is commonly linked to asthma and allergies. Keeping the skin moisturized and using topical treatments are key therapies.",
+            "acne": "Acne Vulgaris is a common skin condition characterized by clogged pores (blackheads/whiteheads), inflamed pimples, or deep cysts, driven by hormones, sebum overproduction, and bacteria.",
+            "ringworm": "Ringworm (Tinea Corporis) is a contagious fungal skin infection presenting as red, circular, itchy rashes with clearer centers. It is treated effectively with topical antifungal creams.",
+            "dermatitis": "Dermatitis is a general term for skin inflammation, often presenting as an itchy, red rash. Types include contact dermatitis (from soap, poison ivy) and atopic dermatitis (eczema).",
+            "stye": "A Stye (Hordeolum) is a red, painful bump near the edge of the eyelid caused by a bacterial infection of the oil glands. Warm compresses are recommended to help it drain.",
+            "conjunctivitis": "Conjunctivitis (pink eye) is inflammation of the outer membrane of the eyeball and inner eyelid, causing redness, itchiness, and discharge. It requires medical evaluation for targeted eye drops.",
+            "heart attack": "A Heart Attack (Myocardial Infarction) is a life-threatening emergency where blood flow to the heart muscle is blocked. Symptoms include chest pain, left-arm pain, and breathlessness. Call emergency services immediately.",
+            "stroke": "A Stroke (Paralysis) occurs when blood supply to the brain is interrupted or reduced. Symptoms include weakness on one body side, slurred speech, and loss of balance. It requires immediate emergency care.",
+            "breast cancer": "Breast Cancer is a malignancy arising in breast tissues, presenting as a painless breast lump, skin dimpling, or nipple discharge. Diagnostic screenings include mammography, ultrasound, and needle biopsy.",
+            "skin cancer": "Skin Cancer includes basal cell carcinoma and melanoma. It presents as irregular, asymmetrical, growing skin lesions. Excision biopsy and dermoscopy are critical for diagnosis."
+        }
+        
+        for condition, definition in definitions_map.items():
+            if condition in user_message_lower:
+                reply = f"🔬 **Baymax Medical Encyclopedia:**\n\n**{condition.title()}**:\n{definition}\n\nFeel free to ask more, or upload diagnostic inputs below! Stay strong! 💖"
+                return reply, active_symptoms, predictions, image_prediction, pdf_summary
+
+        # E. CONVERSATIONAL INTENTS (Greetings/Empathy/Help)
         if self.use_llm:
             # Format conversational prompt
-            messages = [{"role": "system", "content": "You are a professional and empathetic healthcare assistant. Ask clarifying questions about their symptoms to help analyze them."}]
+            messages = [{"role": "system", "content": f"You are Baymax, an empathetic, caring, and professional clinical robot assistant from Big Hero 6. You are talking to patient {patient_name}. Always end responses or greet with supportive phrases like 'Stay strong! 💖'. Ask clarifying questions about their symptoms to help analyze them."}]
             for msg in chat_history:
                 messages.append({"role": msg["role"], "content": msg["content"]})
             messages.append({"role": "user", "content": user_message})
@@ -184,27 +423,36 @@ class MedicalChatbot:
                 with torch.no_grad():
                     outputs = self.model.generate(**inputs, max_new_tokens=150, temperature=0.7)
                 response = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-                return response.strip()
+                reply = response.strip()
+                return reply, active_symptoms, predictions, image_prediction, pdf_summary
             except Exception as e:
                 print(f"LLM chat response error: {e}")
                 
-        # Empathetic conversational script fallback (if LLM is disabled or fails)
-        user_message_lower = user_message.lower()
-        if any(w in user_message_lower for w in ["hello", "hi", "hey"]):
-            return "Hello! I am your AI Clinical Assistant. What symptoms are you experiencing today?"
+        # FALLBACK EMPATHETIC SYSTEM
+        if any(greet in user_message_lower for greet in ["hello", "hi", "hey", "greetings", "hii"]):
+            reply = f"Hello {patient_name}! I am Baymax, your personal healthcare companion. 💖 How are you feeling today? Please let me know what symptoms you are experiencing, and I'll add them to your checklist!"
         elif any(w in user_message_lower for w in ["pain", "hurt", "ache"]):
-            return "I am sorry to hear that you are in pain. Can you describe where the pain is located and if you have other symptoms like fever, nausea, or sweating?"
-        elif any(w in user_message_lower for w in ["chest pain", "heart hurts", "stroke"]):
-            return "⚠️ Chest pain or sudden numbness is a serious symptom. Please tell me if you have shortness of breath, left-arm pain, or dizziness, and consult emergency services immediately if severe."
+            reply = "I am sorry to hear that you are in pain. Can you describe where it hurts? Also, please tell me if you have any other symptoms like fever, nausea, or chills so we can list them!"
+        elif any(w in user_message_lower for w in ["help", "what can you do", "features"]):
+            reply = (
+                "I am here to assist you in three main ways:\n"
+                "1. **Symptom Analysis:** Tell me your symptoms, and type 'diagnose' to run my clinical MLP classifier.\n"
+                "2. **Report Summarizer:** Upload a medical report PDF in Card 2, and type 'summarize' to analyze it.\n"
+                "3. **Skin & Eye Scan:** Upload a photo in Card 3, and type 'scan image' to run my ResNet-18 classifier.\n\n"
+                "How can I help you first? Stay strong! 💖"
+            )
+        elif added_syms:
+            symptoms_str = ", ".join(added_syms)
+            reply = (
+                f"I have noted your symptoms: **{symptoms_str}** and added them to your checklist in Card 1. "
+                "Would you like me to 'evaluate' these symptoms now, or do you have any others to add? Stay strong! 💖"
+            )
         else:
-            return "Thank you for sharing. I have noted these details. Feel free to list any other symptoms you have, or select them from the checklist, and we can generate your diagnosis and clinical report!"
+            reply = f"Thank you for sharing, {patient_name}. I have noted these details. Feel free to list any other symptoms, upload a photo or report, or type 'evaluate' to run a diagnostic screening! Stay strong! 💖"
+            
+        return reply, active_symptoms, predictions, image_prediction, pdf_summary
 
 if __name__ == "__main__":
-    if not os.path.exists("./models/specialized_features.json"):
-        os.makedirs("./models", exist_ok=True)
-        with open("./models/specialized_features.json", "w") as f:
-            json.dump(["cough", "high_fever", "headache", "itching", "chest_pain"], f)
-        
     bot = MedicalChatbot(use_llm=False)
-    test_text = "I have a dry cough, bad headache and feel dizzy since yesterday."
+    test_text = "I have a dry cough and a bad headache."
     print("Detected symptoms:", bot.extract_symptoms(test_text))

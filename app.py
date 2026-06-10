@@ -605,59 +605,33 @@ if st.session_state.show_chatbot:
         st.session_state.chat_messages.append({"role": "user", "content": chat_input})
         st.session_state.prompt_count += 1
         
-        chat_input_lower = chat_input.lower().strip()
+        # Get uploaded files from session state keys to avoid NameErrors
+        uploaded_pdf_file = st.session_state.get("pdf_report_uploader")
+        uploaded_pdf_name = uploaded_pdf_file.name if uploaded_pdf_file else None
+        patient_name_val = st.session_state.get("patient_name_input_field", st.session_state.patient_name)
         
-        if any(greet in chat_input_lower for greet in ["hello", "hi", "heyy", "hey", "greetings"]):
-            reply = "Hii! I am Baymax, your personal healthcare companion. How are you feeling today? Stay strong! 💖"
-        elif any(w in chat_input_lower for w in ["evaluate", "diagnose", "check", "predict", "result"]):
-            active_symptoms = st.session_state.active_symptoms
-            if not active_symptoms:
-                reply = "I cannot evaluate without symptoms. Please enter symptoms in Card 1 below first."
-            else:
-                input_vector = [1 if sym in active_symptoms else 0 for sym in models_data["features"]]
-                input_tensor = torch.tensor(input_vector, dtype=torch.float32).to(models_data["device"]).unsqueeze(0)
-                with torch.no_grad():
-                    mlp_out = models_data["mlp"](input_tensor)
-                    mlp_prob = torch.softmax(mlp_out, dim=1)[0].cpu().numpy()
-                    mlp_pred_idx = np.argmax(mlp_prob)
-                    mlp_disease = models_data["classes"][str(mlp_pred_idx)]
-                    mlp_confidence = mlp_prob[mlp_pred_idx] * 100
-                    
-                tests = get_test_recommendations(mlp_disease)
-                tests_str = " or ".join(tests) if tests else "routine clinical checkups"
-                symptoms_str = ", ".join([format_symptom_name(s) for s in active_symptoms])
-                
-                reply = (
-                    f"Stay strong! 💖 Based on your recorded symptoms ({symptoms_str}), "
-                    f"my analysis indicates **{mlp_disease}** (model confidence: {mlp_confidence:.1f}%). "
-                    f"Consider taking a **{tests_str}** to confirm. "
-                    f"Please consult a physician for professional clinical evaluation."
-                )
-        else:
-            # Extract symptoms from query
-            new_parsed = chatbot.extract_symptoms(chat_input)
-            for s in new_parsed:
-                if s not in st.session_state.active_symptoms:
-                    st.session_state.active_symptoms.append(s)
-            
-            active_symptoms = st.session_state.active_symptoms
-            symptoms_str = ", ".join([format_symptom_name(s) for s in active_symptoms]) if active_symptoms else ""
-            
-            if st.session_state.prompt_count == 1:
-                reply = (
-                    "I am sorry you are feeling unwell. 💖 "
-                    f"{f'I have noted the symptoms: **{symptoms_str}**.' if symptoms_str else ''} "
-                    "I recommend visiting a doctor for an official checkup. "
-                    "Type 'evaluate' whenever you want me to evaluate! Stay strong!"
-                )
-            else:
-                reply = (
-                    "Stay strong! 💖 I am here for you. "
-                    f"{f'Symptoms recorded: **{symptoms_str}**.' if symptoms_str else 'Tell me more about what you are feeling.'} "
-                    "Let me know if you would like me to evaluate."
-                )
-                
+        # Call the connected chatbot helper to parse and evaluate queries using the 3 models
+        reply, new_syms, new_preds, new_img_pred, new_pdf_sum = chatbot.generate_chat_response(
+            user_message=chat_input,
+            chat_history=st.session_state.chat_messages[:-1], # history up to before this user message
+            active_symptoms=st.session_state.active_symptoms,
+            predictions=st.session_state.predictions,
+            image_prediction=st.session_state.image_prediction,
+            pdf_summary=st.session_state.pdf_summary,
+            models_data=models_data,
+            uploaded_image_path=st.session_state.get("uploaded_image_path"),
+            uploaded_pdf_name=uploaded_pdf_name,
+            patient_name=patient_name_val
+        )
+        
+        # Sync states back to session state
+        st.session_state.active_symptoms = new_syms
+        st.session_state.predictions = new_preds
+        st.session_state.image_prediction = new_img_pred
+        st.session_state.pdf_summary = new_pdf_sum
+        
         st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+        st.session_state.scroll_to = "dashboard"
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
