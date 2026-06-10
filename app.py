@@ -223,7 +223,16 @@ st.markdown(f"""
         100% {{ box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }}
     }}
     
+    div:has(.baymax-avatar-container) + div {{
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
+    }}
+    
     div:has(.baymax-avatar-container) + div button {{
+        display: block !important;
+        margin: 0 auto !important;
         background-image: url("data:image/png;base64,{baymax_b64}") !important;
         background-size: contain !important;
         background-repeat: no-repeat !important;
