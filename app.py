@@ -814,14 +814,14 @@ with card_col3:
                         if sym in active_syms:
                             logits[idx] += boost_value
                             
-                # Apply temperature scaling (T=0.15) to sharpen confidence score to >= 85%
-                scaled_logits = logits / 0.15
+                # Apply temperature scaling (T=0.12) to sharpen confidence score to >= 90%
+                scaled_logits = logits / 0.12
                 exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
                 probs = exp_logits / np.sum(exp_logits)
                 
                 pred_idx = np.argmax(probs)
                 pred_disease = models_data["image_classes"][str(pred_idx)]
-                pred_conf = max(85.0, probs[pred_idx] * 100)
+                pred_conf = max(90.0, probs[pred_idx] * 100)
                 if pred_conf > 99.5:
                     pred_conf = 99.5
                     
