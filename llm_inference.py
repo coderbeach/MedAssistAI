@@ -14,7 +14,7 @@ class MedicalChatbot:
         self.model = None
         
         # Load symptom mapping database
-        with open("./models/symptom_features.json", "r") as f:
+        with open("./models/specialized_features.json", "r") as f:
             self.all_symptoms = json.load(f)
             
         if self.use_llm:
@@ -120,7 +120,8 @@ class MedicalChatbot:
             "breast_lump": ["breast lump", "lump in breast", "hard mass in breast"],
             "nipple_discharge": ["nipple discharge", "fluid from nipple", "bleeding nipple"],
             "breast_skin_dimpling": ["breast skin dimpling", "skin dimpling", "puckered breast skin", "orange peel skin"],
-            "armpit_swelling": ["armpit swelling", "swollen armpit", "lump under armpit", "armpit lump"]
+            "armpit_swelling": ["armpit swelling", "swollen armpit", "lump under armpit", "armpit lump"],
+            "asymptomatic": ["asymptomatic", "no symptoms", "no active symptoms", "feel fine", "healthy", "no issues"]
         }
         return mapping
         
@@ -199,11 +200,10 @@ class MedicalChatbot:
             return "Thank you for sharing. I have noted these details. Feel free to list any other symptoms you have, or select them from the checklist, and we can generate your diagnosis and clinical report!"
 
 if __name__ == "__main__":
-    # Test symptom mapping
-    # Create mock symptom files for stand-alone testing
-    os.makedirs("./models", exist_ok=True)
-    with open("./models/symptom_features.json", "w") as f:
-        json.dump(["cough", "high_fever", "headache", "itching", "chest_pain"], f)
+    if not os.path.exists("./models/specialized_features.json"):
+        os.makedirs("./models", exist_ok=True)
+        with open("./models/specialized_features.json", "w") as f:
+            json.dump(["cough", "high_fever", "headache", "itching", "chest_pain"], f)
         
     bot = MedicalChatbot(use_llm=False)
     test_text = "I have a dry cough, bad headache and feel dizzy since yesterday."
