@@ -192,17 +192,16 @@ st.markdown(f"""
         margin: 0 auto !important;
         line-height: 1.6 !important;
     }}
-
-    /* Baymax section */
-    .baymax-section {{
-        background: #FFFFFF;
-        border-radius: 24px;
-        padding: 40px;
-        margin: 0 auto 40px auto;
-        max-width: 850px;
-        border: 1px solid #E2E8F0;
-        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.03);
-        text-align: center;
+    /* Baymax section container styled as a card */
+    div[data-testid="column"]:has(.baymax-section-marker) {{
+        background: #FFFFFF !important;
+        border-radius: 24px !important;
+        padding: 40px !important;
+        margin: 0 auto 40px auto !important;
+        max-width: 850px !important;
+        border: 1px solid #E2E8F0 !important;
+        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.03) !important;
+        text-align: center !important;
     }}
     
     /* Clickable circular Baymax image container */
@@ -224,8 +223,8 @@ st.markdown(f"""
         100% {{ box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }}
     }}
     
-    .baymax-avatar-container button {{
-        background-image: url("data:image/jpeg;base64,{baymax_b64}") !important;
+    div[data-testid="column"]:has(.baymax-section-marker) div[data-testid="stButton"] button {{
+        background-image: url("data:image/png;base64,{baymax_b64}") !important;
         background-size: contain !important;
         background-repeat: no-repeat !important;
         background-position: center !important;
@@ -260,30 +259,26 @@ st.markdown(f"""
         75% {{ transform: rotate(4deg) scale(1.08) translateY(-8px); }}
         90% {{ transform: rotate(-2deg) scale(1.08) translateY(-8px); }}
     }}
-    .baymax-avatar-container button:hover {{
+    div[data-testid="column"]:has(.baymax-section-marker) div[data-testid="stButton"] button:hover {{
         animation: wave-greeting 1.5s ease-in-out infinite !important;
         filter: drop-shadow(0 0 20px rgba(37, 99, 235, 0.35)) !important;
         border-color: #DBEAFE !important;
     }}
-    .baymax-avatar-container button:active {{
+    div[data-testid="column"]:has(.baymax-section-marker) div[data-testid="stButton"] button:active {{
         transform: scale(0.95) !important;
     }}
 
 
-    /* Core Modules Feature Cards */
-    .feature-card {{
+    /* Core Modules Feature Cards styled directly on columns */
+    div[data-testid="column"]:has(.feature-card-marker) {{
         background: #FFFFFF !important;
         border: 1px solid #E2E8F0 !important;
         border-radius: 20px !important;
         padding: 30px !important;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01) !important;
         transition: all 0.3s ease !important;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
     }}
-    .feature-card:hover {{
+    div[data-testid="column"]:has(.feature-card-marker):hover {{
         transform: translateY(-5px) !important;
         box-shadow: 0 12px 30px rgba(37, 99, 235, 0.06) !important;
         border-color: #BFDBFE !important;
@@ -371,14 +366,14 @@ st.markdown(f"""
         background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
     }}
     
-    /* Result Dashboard panels */
-    .result-panel {{
+    /* Result Dashboard panels styled directly on columns */
+    div[data-testid="column"]:has(.result-panel-marker) {{
         background: #FFFFFF !important;
         border: 1px solid #E2E8F0 !important;
         border-radius: 20px !important;
         padding: 25px !important;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.01) !important;
-        margin-bottom: 25px !important;
+        border-left: 5px solid #2563EB !important;
     }}
     .status-badge {{
         display: inline-block;
@@ -399,8 +394,8 @@ st.markdown(f"""
         border: 1px solid #FEF08A;
     }}
 
-    /* Medical Report Display */
-    .report-card {{
+    /* Medical Report Display styled on single-column wrapper */
+    div[data-testid="column"]:has(.report-card-marker) {{
         background: #FFFFFF !important;
         border: 2px solid #2563EB !important;
         border-radius: 24px !important;
@@ -537,16 +532,17 @@ def generate_pdf_summary(filename):
 # BAYMAX AI ASSISTANT SECTION
 # =========================================================
 st.markdown('<div id="baymax"></div>', unsafe_allow_html=True)
-st.markdown('<div class="baymax-section">', unsafe_allow_html=True)
-st.markdown('<h2 style="color:#1E3A8A; margin-top:0;">Baymax AI Health Assistant</h2>', unsafe_allow_html=True)
-st.markdown('<p style="color:#64748B; font-size:1.05rem; margin-bottom: 25px;">Your intelligent healthcare companion. Describe symptoms, ask health-related questions, upload reports, and receive AI-assisted guidance.</p>', unsafe_allow_html=True)
-
-# Clickable Baymax Avatar Button
-st.markdown('<div class="baymax-avatar-container">', unsafe_allow_html=True)
-if st.button("", key="baymax_avatar_trigger"):
-    st.session_state.show_chatbot = not st.session_state.show_chatbot
-    st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
+baymax_col = st.columns(1)[0]
+with baymax_col:
+    st.markdown('<div class="baymax-section-marker"></div>', unsafe_allow_html=True)
+    st.markdown('<h2 style="color:#1E3A8A; margin-top:0;">Baymax AI Health Assistant</h2>', unsafe_allow_html=True)
+    st.markdown('<p style="color:#64748B; font-size:1.05rem; margin-bottom: 25px;">Your intelligent healthcare companion. Describe symptoms, ask health-related questions, upload reports, and receive AI-assisted guidance.</p>', unsafe_allow_html=True)
+    
+    # Clickable Baymax Avatar Button
+    st.markdown('<div class="baymax-avatar-container"></div>', unsafe_allow_html=True)
+    if st.button("", key="baymax_avatar_trigger"):
+        st.session_state.show_chatbot = not st.session_state.show_chatbot
+        st.rerun()
 
 # Collapsible Conversational Chat Interface
 if st.session_state.show_chatbot:
@@ -634,7 +630,7 @@ card_col1, card_col2, card_col3 = st.columns(3)
 # CARD 1: Symptom Analysis
 # -----------------
 with card_col1:
-    st.markdown('<div class="feature-card">', unsafe_allow_html=True)
+    st.markdown('<div class="feature-card-marker"></div>', unsafe_allow_html=True)
     st.markdown('<div class="card-title">Symptom Analysis & Report</div>', unsafe_allow_html=True)
     st.markdown('<p class="card-desc">Analyze patient symptoms, identify possible health conditions, recommend relevant medical tests, and generate an organized health report.</p>', unsafe_allow_html=True)
     
@@ -687,13 +683,12 @@ with card_col1:
                 "mlp_conf": mlp_confidence
             }
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------
 # CARD 2: Medical Report Summarizer
 # -----------------
 with card_col2:
-    st.markdown('<div class="feature-card">', unsafe_allow_html=True)
+    st.markdown('<div class="feature-card-marker"></div>', unsafe_allow_html=True)
     st.markdown('<div class="card-title">Medical Report Summarizer</div>', unsafe_allow_html=True)
     st.markdown('<p class="card-desc">Upload laboratory reports, prescriptions, and medical documents to receive concise AI-generated summaries and key findings.</p>', unsafe_allow_html=True)
     
@@ -714,13 +709,12 @@ with card_col2:
                 st.session_state.chat_messages.append({"role": "user", "content": f"Summarize uploaded report: {uploaded_pdf.name}"})
                 st.session_state.chat_messages.append({"role": "assistant", "content": f"I have summarized your report **{uploaded_pdf.name}**:\n\n{summary_clean} Stay strong! 💖"})
                 st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------
 # CARD 3: Skin & Eye Screening
 # -----------------
 with card_col3:
-    st.markdown('<div class="feature-card">', unsafe_allow_html=True)
+    st.markdown('<div class="feature-card-marker"></div>', unsafe_allow_html=True)
     st.markdown('<div class="card-title">Skin & Eye Screening</div>', unsafe_allow_html=True)
     st.markdown('<p class="card-desc">Upload skin or eye images for AI-assisted screening and condition identification.</p>', unsafe_allow_html=True)
     
@@ -784,7 +778,6 @@ with card_col3:
                 st.session_state.chat_messages.append({"role": "user", "content": "Scan the uploaded clinical image."})
                 st.session_state.chat_messages.append({"role": "assistant", "content": baymax_visual_response})
                 st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
 # UNIFIED RESULTS DASHBOARD SECTION
@@ -797,7 +790,7 @@ dash_col1, dash_col2, dash_col3 = st.columns(3)
 
 # 1. Symptom Analysis Panel
 with dash_col1:
-    st.markdown('<div class="result-panel">', unsafe_allow_html=True)
+    st.markdown('<div class="result-panel-marker"></div>', unsafe_allow_html=True)
     st.markdown('<h4 style="margin-top:0; color:#1E3A8A;">1. Symptom Analysis</h4>', unsafe_allow_html=True)
     
     if st.session_state.predictions:
@@ -812,11 +805,10 @@ with dash_col1:
     else:
         st.markdown('<span class="status-badge status-pending">Pending Input</span>', unsafe_allow_html=True)
         st.info("Please select symptoms and run analysis in Card 1.")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # 2. Medical Report Summary Panel
 with dash_col2:
-    st.markdown('<div class="result-panel">', unsafe_allow_html=True)
+    st.markdown('<div class="result-panel-marker"></div>', unsafe_allow_html=True)
     st.markdown('<h4 style="margin-top:0; color:#1E3A8A;">2. Medical Report Summary</h4>', unsafe_allow_html=True)
     
     if st.session_state.pdf_summary:
@@ -825,11 +817,10 @@ with dash_col2:
     else:
         st.markdown('<span class="status-badge status-pending">Pending Upload</span>', unsafe_allow_html=True)
         st.info("Please upload a PDF file and click summarize in Card 2.")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # 3. Skin & Eye Screening Panel
 with dash_col3:
-    st.markdown('<div class="result-panel">', unsafe_allow_html=True)
+    st.markdown('<div class="result-panel-marker"></div>', unsafe_allow_html=True)
     st.markdown('<h4 style="margin-top:0; color:#1E3A8A;">3. Skin & Eye Screening</h4>', unsafe_allow_html=True)
     
     if st.session_state.image_prediction:
@@ -848,7 +839,6 @@ with dash_col3:
     else:
         st.markdown('<span class="status-badge status-pending">Pending Upload</span>', unsafe_allow_html=True)
         st.info("Please upload a skin or eye image and click scan in Card 3.")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
 # CONSOLIDATED HEALTH REPORT SECTION
@@ -857,8 +847,10 @@ st.markdown('<div id="report"></div>', unsafe_allow_html=True)
 st.write("---")
 st.markdown('<h2 style="text-align:center; color:#1E3A8A; margin-bottom:10px;">Consolidated Health Report</h2>', unsafe_allow_html=True)
 
-st.markdown('<div class="report-card">', unsafe_allow_html=True)
-st.markdown("<h3 style='margin-top:0; border-bottom: 2px solid #E2E8F0; padding-bottom: 12px; color:#1E3A8A; text-align:center;'>📋 CLINICAL INTERMEDIARY CONSULTATION SUMMARY</h3>", unsafe_allow_html=True)
+report_col = st.columns(1)[0]
+with report_col:
+    st.markdown('<div class="report-card-marker"></div>', unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-top:0; border-bottom: 2px solid #E2E8F0; padding-bottom: 12px; color:#1E3A8A; text-align:center;'>📋 CLINICAL INTERMEDIARY CONSULTATION SUMMARY</h3>", unsafe_allow_html=True)
 
 # Demographics (Simulated clinical info)
 rcol1, rcol2 = st.columns(2)
@@ -989,8 +981,6 @@ with export_col2:
         )
     except Exception as e:
         st.error(f"Failed to generate report: {e}")
-        
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
 # FOOTER SECTION
