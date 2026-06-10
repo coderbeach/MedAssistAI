@@ -504,6 +504,10 @@ st.markdown("""
 # ---------------------------------------------------------
 # Session State Initialization
 # ---------------------------------------------------------
+if "patient_name" not in st.session_state:
+    st.session_state.patient_name = "Valued Patient"
+if "patient_age" not in st.session_state:
+    st.session_state.patient_age = "30"
 if "active_symptoms" not in st.session_state:
     st.session_state.active_symptoms = []
 if "show_chatbot" not in st.session_state:
@@ -550,6 +554,26 @@ def generate_pdf_summary(filename):
             "**Key Finding:** General health indicators present as normal. No diagnostic flags or critical anomalies found.\n\n"
             "**Recommendation:** Continue routine lifestyle habits and complete standard annual clinical checks."
         )
+
+# ---------------------------------------------------------
+# Patient Demographics Input Form
+# ---------------------------------------------------------
+st.markdown('<div class="feature-card"><div class="card-title">👤 Patient Profile</div></div>', unsafe_allow_html=True)
+demo_col1, demo_col2 = st.columns(2)
+with demo_col1:
+    st.session_state.patient_name = st.text_input(
+        "Patient Full Name:", 
+        value=st.session_state.patient_name, 
+        placeholder="Enter name (e.g. John Doe)...",
+        key="patient_name_input_field"
+    )
+with demo_col2:
+    st.session_state.patient_age = st.text_input(
+        "Patient Age:", 
+        value=st.session_state.patient_age, 
+        placeholder="Enter age (e.g. 30)...",
+        key="patient_age_input_field"
+    )
 
 # =========================================================
 # BAYMAX AI ASSISTANT SECTION
@@ -870,7 +894,8 @@ st.markdown('<div class="report-card"><h3 style="margin:0; color:#1E3A8A; text-a
 rcol1, rcol2 = st.columns(2)
 with rcol1:
     st.markdown("**Patient Demographics:**")
-    st.write("- **Patient Name:** Valued Patient")
+    st.write(f"- **Patient Name:** {st.session_state.patient_name}")
+    st.write(f"- **Patient Age:** {st.session_state.patient_age}")
     st.write("- **Consultation Date:** 2026-06-08 (Vitals Check)")
 with rcol2:
     st.markdown("**Clinic Information:**")
@@ -973,8 +998,8 @@ with export_col2:
         
         create_clinical_report(
             report_filename,
-            "Valued Patient",
-            "Adult",
+            st.session_state.patient_name,
+            st.session_state.patient_age,
             st.session_state.active_symptoms,
             symptom_disease,
             symptom_prob,
