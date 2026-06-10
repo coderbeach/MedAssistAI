@@ -1005,6 +1005,44 @@ else:
     image_disease = None
     image_prob = None
 
+# Center-aligned clinical summary metrics restored inside the Consolidated Health Report
+st.markdown("<h4 style='text-align: center;'>🔍 Symptom Questionnaire & Checkups</h4>", unsafe_allow_html=True)
+if st.session_state.active_symptoms:
+    symptoms_formatted = ", ".join([format_symptom_name(s) for s in st.session_state.active_symptoms])
+    st.markdown(f"<p style='text-align: center;'><b>Patient Entered Symptoms:</b> {symptoms_formatted}</p>", unsafe_allow_html=True)
+else:
+    st.markdown("<p style='text-align: center;'>No symptoms selected in the checklist.</p>", unsafe_allow_html=True)
+
+if st.session_state.predictions:
+    st.markdown(f"<p style='text-align: center;'><b>MLP Classifier Prediction:</b> {symptom_disease} ({symptom_prob:.1f}% confidence)</p>", unsafe_allow_html=True)
+else:
+    st.markdown("<p style='text-align: center;'>Pending symptom analysis run.</p>", unsafe_allow_html=True)
+
+st.write("")
+
+st.markdown("<h4 style='text-align: center;'>📷 Skin & Eye Diagnostic screening</h4>", unsafe_allow_html=True)
+if st.session_state.image_prediction:
+    st.markdown(f"<p style='text-align: center;'><b>Image Model Prediction:</b> {image_disease} ({image_prob:.1f}% confidence)</p>", unsafe_allow_html=True)
+else:
+    st.markdown("<p style='text-align: center;'>Pending skin/eye image scan.</p>", unsafe_allow_html=True)
+
+st.write("")
+
+st.markdown("<h4 style='text-align: center;'>🩺 Recommended Medical Scans & Tests</h4>", unsafe_allow_html=True)
+recommended_tests = set()
+if symptom_disease != "Undiagnosed":
+    recommended_tests.update(get_test_recommendations(symptom_disease))
+if image_disease:
+    recommended_tests.update(get_test_recommendations(image_disease))
+
+if recommended_tests:
+    tests_html = "".join([f"<div style='text-align: center;'>✔ <b>{test}</b></div>" for test in recommended_tests])
+    st.markdown(tests_html, unsafe_allow_html=True)
+else:
+    st.markdown("<p style='text-align: center;'>Enter clinical indicators above to view recommended scans.</p>", unsafe_allow_html=True)
+
+st.write("")
+
 # Emergency or Oncology Alerts
 alerts = []
 if symptom_disease != "Undiagnosed":
