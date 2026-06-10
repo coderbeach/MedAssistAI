@@ -223,7 +223,7 @@ st.markdown(f"""
         100% {{ box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }}
     }}
     
-    div:has(> .baymax-avatar-container) + div[data-testid="stButton"] button {{
+    div:has(.baymax-avatar-container) + div button {{
         background-image: url("data:image/png;base64,{baymax_b64}") !important;
         background-size: contain !important;
         background-repeat: no-repeat !important;
@@ -259,12 +259,12 @@ st.markdown(f"""
         75% {{ transform: rotate(4deg) scale(1.08) translateY(-8px); }}
         90% {{ transform: rotate(-2deg) scale(1.08) translateY(-8px); }}
     }}
-    div:has(> .baymax-avatar-container) + div[data-testid="stButton"] button:hover {{
+    div:has(.baymax-avatar-container) + div button:hover {{
         animation: wave-greeting 1.5s ease-in-out infinite !important;
         filter: drop-shadow(0 0 20px rgba(37, 99, 235, 0.35)) !important;
         border-color: #DBEAFE !important;
     }}
-    div:has(> .baymax-avatar-container) + div[data-testid="stButton"] button:active {{
+    div:has(.baymax-avatar-container) + div button:active {{
         transform: scale(0.95) !important;
     }}
 
