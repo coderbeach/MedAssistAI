@@ -1025,12 +1025,6 @@ if "scroll_to" in st.session_state and st.session_state.scroll_to:
                 const dashboard = window.parent.document.getElementById("dashboard");
                 if (dashboard) {{
                     dashboard.scrollIntoView({{ behavior: "smooth", block: "start" }});
-                    setTimeout(function() {{
-                        const report = window.parent.document.getElementById("report");
-                        if (report) {{
-                            report.scrollIntoView({{ behavior: "smooth", block: "start" }});
-                        }}
-                    }}, 2000);
                 }}
             }}, 300);
         </script>
