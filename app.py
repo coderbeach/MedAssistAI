@@ -701,6 +701,7 @@ with card_col1:
                 "mlp_disease": mlp_disease,
                 "mlp_conf": mlp_confidence
             }
+            st.session_state.scroll_to = "dashboard"
             st.rerun()
 
 # -----------------
@@ -726,6 +727,7 @@ with card_col2:
                 summary_clean = summary.replace("**", "").replace("###", "")
                 st.session_state.chat_messages.append({"role": "user", "content": f"Summarize uploaded report: {uploaded_pdf.name}"})
                 st.session_state.chat_messages.append({"role": "assistant", "content": f"I have summarized your report **{uploaded_pdf.name}**:\n\n{summary_clean} Stay strong! 💖"})
+                st.session_state.scroll_to = "dashboard"
                 st.rerun()
 
 # -----------------
@@ -794,6 +796,7 @@ with card_col3:
                 
                 st.session_state.chat_messages.append({"role": "user", "content": "Scan the uploaded clinical image."})
                 st.session_state.chat_messages.append({"role": "assistant", "content": baymax_visual_response})
+                st.session_state.scroll_to = "dashboard"
                 st.rerun()
 
 # =========================================================
@@ -1008,3 +1011,27 @@ st.markdown("""
     <p style="font-size:0.8rem; color:#94A3B8;">&copy; 2026 MediAssist AI. All rights reserved. Hospital and clinical evaluation platform sandbox.</p>
 </div>
 """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# Dynamic Auto-Scroll handler
+# ---------------------------------------------------------
+if "scroll_to" in st.session_state and st.session_state.scroll_to:
+    target = st.session_state.scroll_to
+    st.session_state.scroll_to = None
+    import streamlit.components.v1 as components
+    components.html(f"""
+        <script>
+            setTimeout(function() {{
+                const dashboard = window.parent.document.getElementById("dashboard");
+                if (dashboard) {{
+                    dashboard.scrollIntoView({{ behavior: "smooth", block: "start" }});
+                    setTimeout(function() {{
+                        const report = window.parent.document.getElementById("report");
+                        if (report) {{
+                            report.scrollIntoView({{ behavior: "smooth", block: "start" }});
+                        }}
+                    }}, 2000);
+                }}
+            }}, 300);
+        </script>
+    """, height=0, width=0)
