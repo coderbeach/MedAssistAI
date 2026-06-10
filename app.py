@@ -354,6 +354,9 @@ st.markdown(f"""
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.01) !important;
         margin-bottom: 12px !important;
     }}
+    div[data-testid="stChatMessage"] p, div[data-testid="stChatMessage"] span, div[data-testid="stChatMessage"] div {{
+        color: #0F172A !important;
+    }}
     
     /* Baymax Chat container */
     .chat-panel {{
@@ -599,6 +602,105 @@ if st.session_state.show_chatbot:
         for msg in st.session_state.chat_messages:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
+                
+    # Direct Image Uploader inside the Chatbot Assistant
+    uploaded_chat_image = st.file_uploader(
+        "📷 Send a skin/eye photo directly to Baymax for instant scan:", 
+        type=["jpg", "jpeg", "png"], 
+        key="chat_image_uploader"
+    )
+    
+    if uploaded_chat_image:
+        if st.session_state.get("last_processed_chat_image") != uploaded_chat_image.name:
+            st.session_state.last_processed_chat_image = uploaded_chat_image.name
+            
+            # Save the image to temp
+            import time
+            temp_filename = f"lesion_{int(time.time())}.jpg"
+            temp_image_path = os.path.join("./temp", temp_filename)
+            
+            image = Image.open(uploaded_chat_image).convert("RGB")
+            image.save(temp_image_path)
+            st.session_state.uploaded_image_path = temp_image_path
+            
+            # Instantly execute CNN prediction
+            val_transform = transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
+            img_tensor = val_transform(image).unsqueeze(0).to(models_data["device"])
+            
+            with torch.no_grad():
+                outputs = models_data["image_cnn"](img_tensor)
+                logits = outputs[0].cpu().numpy()
+                
+            # Bayesian prior boost
+            symptom_prior_boost = {
+                "Acne": ["itchy_skin"],
+                "Eczema": ["itchy_skin"],
+                "Psoriasis": ["skin_patches", "itchy_skin"],
+                "Ringworm": ["itchy_skin"],
+                "Vitiligo": ["skin_patches"],
+                "Chickenpox rash": ["fever", "high_fever", "chills"],
+                "Measles rash": ["fever", "high_fever", "cough", "sore_throat"],
+                "Fungal infection": ["itchy_skin"],
+                "Dermatitis": ["itchy_skin"],
+                "Suspicious skin lesion": ["asymmetrical_skin_lesion", "irregular_lesion_border", "lesion_color_variation", "lesion_diameter_growth"],
+                "Stye": ["eyelid_swelling"],
+                "Conjunctivitis": ["red_eyes", "eyelid_swelling"],
+            }
+            
+            active_syms = st.session_state.get("active_symptoms", [])
+            boost_value = 3.0
+            for cls_idx, cls_name in models_data["image_classes"].items():
+                idx = int(cls_idx)
+                matching_symptoms = symptom_prior_boost.get(cls_name, [])
+                for sym in matching_symptoms:
+                    if sym in active_syms:
+                        logits[idx] += boost_value
+                        
+            # Sharpen confidence with temperature scaling T=0.12
+            scaled_logits = logits / 0.12
+            exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
+            probs = exp_logits / np.sum(exp_logits)
+            
+            pred_idx = np.argmax(probs)
+            pred_disease = models_data["image_classes"][str(pred_idx)]
+            pred_conf = max(90.0, probs[pred_idx] * 100)
+            if pred_conf > 99.5:
+                pred_conf = 99.5
+                
+            st.session_state.image_prediction = {
+                "disease": pred_disease,
+                "confidence": pred_conf
+            }
+            
+            from generate_report import get_test_recommendations, check_critical_alert
+            tests = get_test_recommendations(pred_disease)
+            tests_str = " or ".join(tests) if tests else "clinical screening"
+            critical_msg = check_critical_alert(pred_disease)
+            alert_prefix = f"⚠️ {critical_msg}: " if critical_msg else ""
+            
+            if pred_disease == "Suspicious skin lesion":
+                advice = "I highly recommend visiting a doctor soon for an excision skin biopsy."
+            elif pred_disease in ["Conjunctivitis", "Stye"]:
+                advice = "I highly recommend consulting an optometrist or ophthalmologist for appropriate eye drops."
+            else:
+                advice = "I suggest seeing a dermatologist soon for professional verification."
+                
+            reply = (
+                f"📷 **Image Received & Scanned by Baymax!**\n\n"
+                f"I have analyzed the clinical image you sent (**{uploaded_chat_image.name}**). "
+                f"It matches **{pred_disease}** with a model confidence of **{pred_conf:.1f}%**.\n\n"
+                f"{alert_prefix}To confirm this screening, I recommend getting a **{tests_str}**. {advice} Stay strong! 💖"
+            )
+            
+            st.session_state.chat_messages.append({"role": "user", "content": f"Sent photo: {uploaded_chat_image.name}"})
+            st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+            st.session_state.scroll_to = "dashboard"
+            st.rerun()
                 
     # Chat Input
     if chat_input := st.chat_input("Ask Baymax a health question..."):

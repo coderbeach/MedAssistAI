@@ -2,6 +2,7 @@ import os
 import re
 import json
 import torch
+import random
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
@@ -167,8 +168,8 @@ class MedicalChatbot:
 
     def generate_chat_response(self, user_message, chat_history, active_symptoms, predictions, image_prediction, pdf_summary, models_data=None, uploaded_image_path=None, uploaded_pdf_name=None, patient_name="Valued Patient"):
         """
-        Generates an empathetic clinical chatbot response, automatically extracting symptoms
-        and executing/connecting to the 3 AI models (Symptom MLP, Image CNN, PDF Summarizer) on command.
+        Generates an empathetic clinical chatbot response, automatically extracting symptoms,
+        running the symptom MLP model, and executing/connecting to the other 2 models.
         """
         import numpy as np
         import torch
@@ -178,6 +179,12 @@ class MedicalChatbot:
         
         user_message_lower = user_message.lower().strip()
         
+        # Helper symptom name formatter
+        def format_symptom_name(sym):
+            if sym == "asymptomatic":
+                return "Asymptomatic (No Symptoms)"
+            return sym.replace("_", " ").title()
+            
         # 1. Automatic symptom extraction from query
         new_parsed = self.extract_symptoms(user_message)
         added_syms = []
@@ -198,15 +205,16 @@ class MedicalChatbot:
                     
         # 2. Command Checks:
         
-        # A. TRIGGER SYMPTOM DIAGNOSIS (MLP Classifier Connection)
+        # A. AUTOMATIC OR REQUESTED SYMPTOM DIAGNOSIS (MLP Classifier Connection)
         symptom_triggers = ["evaluate", "diagnose", "check symptoms", "run analysis", "predict symptoms", "what disease do i have"]
-        if any(t in user_message_lower for t in symptom_triggers):
-            if not active_symptoms or active_symptoms == ["asymptomatic"]:
-                reply = "I cannot evaluate without symptoms. Please tell me what symptoms you are experiencing, or select them from the checklist first! Stay strong! 💖"
-                return reply, active_symptoms, predictions, image_prediction, pdf_summary
-                
+        has_diagnostic_trigger = any(t in user_message_lower for t in symptom_triggers)
+        
+        # If new symptoms were added, or user implies they have symptoms, run prediction automatically!
+        implies_symptoms = any(w in user_message_lower for w in ["feel", "feeling", "symptom", "have", "experience", "experiencing", "suffering", "pain", "hurt", "ache"])
+        
+        if (has_diagnostic_trigger or added_syms or implies_symptoms) and active_symptoms and active_symptoms != ["asymptomatic"]:
             if models_data is None:
-                reply = "Clinical models are currently loading. Please wait a moment and try again!"
+                reply = "I noted your symptoms, but my clinical models are still loading. Please wait a moment and try again!"
                 return reply, active_symptoms, predictions, image_prediction, pdf_summary
                 
             # Run specialized symptom predictions (MLP, RF, DT)
@@ -245,16 +253,21 @@ class MedicalChatbot:
             
             tests = get_test_recommendations(mlp_disease)
             tests_str = " or ".join(tests) if tests else "routine clinical checkups"
-            symptoms_str = ", ".join([s.replace("_", " ").title() for s in active_symptoms])
+            symptoms_str = ", ".join([format_symptom_name(s) for s in active_symptoms])
             
             critical_msg = check_critical_alert(mlp_disease)
             alert_prefix = f"⚠️ {critical_msg}: " if critical_msg else ""
             
+            if added_syms:
+                intro = f"I have noted your symptoms: **{', '.join(added_syms)}** and updated your checklist.\n\n"
+            else:
+                intro = "Running diagnostic symptom screening...\n\n"
+                
             reply = (
-                f"Stay strong! 💖 Based on your recorded symptoms ({symptoms_str}), "
-                f"my clinical specialized MLP model predicts **{mlp_disease}** with **{mlp_confidence:.1f}%** confidence.\n\n"
-                f"{alert_prefix}To confirm this screening, I recommend getting a **{tests_str}**.\n\n"
-                f"I have successfully updated your results and unified report. Please consult a physician for official clinical evaluation."
+                f"{intro}Based on your symptom profile ({symptoms_str}), "
+                f"my clinical specialized MLP model identifies a potential diagnosis of **{mlp_disease}** with **{mlp_confidence:.1f}%** confidence.\n\n"
+                f"{alert_prefix}To confirm this screening, I highly recommend a **{tests_str}**.\n\n"
+                f"I have successfully updated your results and unified report. Please consult a physician for official clinical evaluation. Stay strong! 💖"
             )
             return reply, active_symptoms, predictions, image_prediction, pdf_summary
 
@@ -262,7 +275,7 @@ class MedicalChatbot:
         image_triggers = ["scan image", "scan photo", "check photo", "dermatology check", "analyze image", "predict image", "scan my skin", "scan my eye"]
         if any(t in user_message_lower for t in image_triggers):
             if not uploaded_image_path or not os.path.exists(uploaded_image_path):
-                reply = "I see you'd like me to scan a clinical photo, but no image is currently uploaded. Please upload a skin or eye image in Card 3 (Skin & Eye Screening) first! Stay strong! 💖"
+                reply = "I see you'd like me to scan a clinical photo, but no image is currently uploaded. Please upload a skin or eye image directly inside this chat or in Card 3 first! Stay strong! 💖"
                 return reply, active_symptoms, predictions, image_prediction, pdf_summary
                 
             if models_data is None:
@@ -284,7 +297,7 @@ class MedicalChatbot:
                     outputs = models_data["image_cnn"](img_tensor)
                     logits = outputs[0].cpu().numpy()
                     
-                # Bayesian Sensor Fusion: Boost logits if relevant symptoms are active
+                # Bayesian prior boost
                 symptom_prior_boost = {
                     "Acne": ["itchy_skin"],
                     "Eczema": ["itchy_skin"],
@@ -342,7 +355,7 @@ class MedicalChatbot:
                     f"{alert_prefix}To confirm this screening, I recommend a **{tests_str}**. {advice} Stay strong! 💖"
                 )
             except Exception as e:
-                reply = f"Error scanning image: {e}. Please ensure it is a valid format."
+                reply = f"Error scanning image: {e}."
                 
             return reply, active_symptoms, predictions, image_prediction, pdf_summary
 
@@ -350,7 +363,7 @@ class MedicalChatbot:
         report_triggers = ["summarize", "read report", "explain report", "analyze report", "clinical findings", "read my pdf"]
         if any(t in user_message_lower for t in report_triggers):
             if not uploaded_pdf_name:
-                reply = "I see you'd like me to summarize a medical report, but no PDF file is currently uploaded. Please upload a report PDF in Card 2 (Medical Report Summarizer) first! Stay strong! 💖"
+                reply = "I see you'd like me to summarize a medical report, but no PDF file is currently uploaded. Please upload a report PDF in Card 2 first! Stay strong! 💖"
                 return reply, active_symptoms, predictions, image_prediction, pdf_summary
                 
             # Run report summarization
@@ -409,9 +422,8 @@ class MedicalChatbot:
                 reply = f"🔬 **Baymax Medical Encyclopedia:**\n\n**{condition.title()}**:\n{definition}\n\nFeel free to ask more, or upload diagnostic inputs below! Stay strong! 💖"
                 return reply, active_symptoms, predictions, image_prediction, pdf_summary
 
-        # E. CONVERSATIONAL INTENTS (Greetings/Empathy/Help)
+        # E. LLM CONVERSATIONAL FALLBACK
         if self.use_llm:
-            # Format conversational prompt
             messages = [{"role": "system", "content": f"You are Baymax, an empathetic, caring, and professional clinical robot assistant from Big Hero 6. You are talking to patient {patient_name}. Always end responses or greet with supportive phrases like 'Stay strong! 💖'. Ask clarifying questions about their symptoms to help analyze them."}]
             for msg in chat_history:
                 messages.append({"role": msg["role"], "content": msg["content"]})
@@ -428,28 +440,64 @@ class MedicalChatbot:
             except Exception as e:
                 print(f"LLM chat response error: {e}")
                 
-        # FALLBACK EMPATHETIC SYSTEM
-        if any(greet in user_message_lower for greet in ["hello", "hi", "hey", "greetings", "hii"]):
-            reply = f"Hello {patient_name}! I am Baymax, your personal healthcare companion. 💖 How are you feeling today? Please let me know what symptoms you are experiencing, and I'll add them to your checklist!"
-        elif any(w in user_message_lower for w in ["pain", "hurt", "ache"]):
-            reply = "I am sorry to hear that you are in pain. Can you describe where it hurts? Also, please tell me if you have any other symptoms like fever, nausea, or chills so we can list them!"
-        elif any(w in user_message_lower for w in ["help", "what can you do", "features"]):
-            reply = (
-                "I am here to assist you in three main ways:\n"
-                "1. **Symptom Analysis:** Tell me your symptoms, and type 'diagnose' to run my clinical MLP classifier.\n"
-                "2. **Report Summarizer:** Upload a medical report PDF in Card 2, and type 'summarize' to analyze it.\n"
-                "3. **Skin & Eye Scan:** Upload a photo in Card 3, and type 'scan image' to run my ResNet-18 classifier.\n\n"
-                "How can I help you first? Stay strong! 💖"
-            )
-        elif added_syms:
-            symptoms_str = ", ".join(added_syms)
-            reply = (
-                f"I have noted your symptoms: **{symptoms_str}** and added them to your checklist in Card 1. "
-                "Would you like me to 'evaluate' these symptoms now, or do you have any others to add? Stay strong! 💖"
-            )
+        # F. DIVERSE CONVERSATIONAL ENGINE (Prevents Repetition)
+        greetings = ["hello", "hi", "hey", "greetings", "hii", "baymax"]
+        if any(greet in user_message_lower for greet in greetings):
+            options = [
+                f"Hello {patient_name}! I am Baymax, your personal healthcare companion. 💖 How are you feeling today?",
+                f"Hi there {patient_name}! I'm Baymax. Please tell me what symptoms you are experiencing, and I'll analyze them for you.",
+                f"Hello! Baymax here. I'm ready to assist you. Are you feeling any symptoms or discomfort today?"
+            ]
+            reply = random.choice(options)
+        elif any(w in user_message_lower for w in ["thank", "thanks", "appreciate"]):
+            options = [
+                "You are very welcome! Helping you is my primary protocol. Stay strong! 💖",
+                "It is my pleasure to assist you. I hope you feel better soon! 💖",
+                "No need to thank me! I am here to support you every step of the way. Stay strong! 💖"
+            ]
+            reply = random.choice(options)
+        elif any(w in user_message_lower for w in ["ok", "okay", "cool", "fine", "understand", "got it"]):
+            options = [
+                "Excellent. Let me know if you would like to run another analysis, scan a photo, or summarize a report! 💖",
+                "Perfect. I am here if you have any questions or new symptoms to discuss. Stay strong! 💖",
+                "Understood. Please feel free to check the report PDF download below when you are ready! 💖"
+            ]
+            reply = random.choice(options)
+        elif any(w in user_message_lower for w in ["bad", "sad", "worse", "not good", "sick", "terrible"]):
+            options = [
+                "I am very sorry to hear that. Please rest and keep hydrated. Have you entered all your symptoms in Card 1? I can run an evaluation.",
+                "Your well-being is my main concern. Please tell me more about what you are feeling so I can help screen it. Stay strong! 💖",
+                "That sounds difficult. Please tell me if you have any fever, localized pain, or shortness of breath so I can evaluate it. Stay strong! 💖"
+            ]
+            reply = random.choice(options)
         else:
-            reply = f"Thank you for sharing, {patient_name}. I have noted these details. Feel free to list any other symptoms, upload a photo or report, or type 'evaluate' to run a diagnostic screening! Stay strong! 💖"
-            
+            # Dynamic replies based on current active symptoms or predictions
+            if active_symptoms and active_symptoms != ["asymptomatic"]:
+                symptoms_str = ", ".join([format_symptom_name(s) for s in active_symptoms])
+                if predictions:
+                    reply = (
+                        f"I am monitoring your symptoms: **{symptoms_str}**.\n\n"
+                        f"Our current screening suggests **{predictions['mlp_disease']}** ({predictions['mlp_conf']:.1f}% confidence). "
+                        "Is there any other symptom you'd like to add, or would you like to scan a clinical skin/eye image? Stay strong! 💖"
+                    )
+                else:
+                    reply = (
+                        f"I have recorded the following symptoms for you: **{symptoms_str}**.\n\n"
+                        "Would you like me to run an evaluation on these? Just ask me to 'diagnose' or 'evaluate'. Stay strong! 💖"
+                    )
+            elif image_prediction:
+                reply = (
+                    f"Our image scan identified **{image_prediction['disease']}** ({image_prediction['confidence']:.1f}% confidence).\n\n"
+                    "If you are feeling any symptoms, let me know so I can run a questionnaire analysis as well! Stay strong! 💖"
+                )
+            else:
+                options = [
+                    f"I am here to help you, {patient_name}. You can type symptoms directly in our chat, upload a skin or eye image, or drag a lab report PDF here to begin. Stay strong! 💖",
+                    f"How can I assist you further, {patient_name}? I can analyze symptom patterns, scan skin/eye photos, or summarize lab documents. Stay strong! 💖",
+                    f"I'm keeping a watch on your health metrics. Let me know if you have any questions or if you feel any discomfort. Stay strong! 💖"
+                ]
+                reply = random.choice(options)
+                
         return reply, active_symptoms, predictions, image_prediction, pdf_summary
 
 if __name__ == "__main__":
