@@ -765,7 +765,19 @@ with card_col3:
     
     if uploaded_image:
         os.makedirs("./temp", exist_ok=True)
-        temp_image_path = os.path.join("./temp", "uploaded_lesion.jpg")
+        # Clean up old temporary files in the temp directory to prevent Windows file locking issues
+        for f in os.listdir("./temp"):
+            if f.startswith("lesion_") and f.endswith(".jpg"):
+                try:
+                    os.remove(os.path.join("./temp", f))
+                except Exception:
+                    pass
+        
+        # Save the new uploaded image with a unique filename
+        import time
+        temp_filename = f"lesion_{int(time.time())}.jpg"
+        temp_image_path = os.path.join("./temp", temp_filename)
+        
         image = Image.open(uploaded_image).convert("RGB")
         image.save(temp_image_path)
         st.session_state.uploaded_image_path = temp_image_path
