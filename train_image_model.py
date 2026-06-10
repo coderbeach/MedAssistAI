@@ -104,9 +104,9 @@ def train_cnn():
     except AttributeError:
         model = models.resnet18(pretrained=True)
         
-    # Freeze convolutional layers to allow fast CPU-based fine-tuning
+    # Unfreeze all layers to allow full fine-tuning on skin and eye image data
     for param in model.parameters():
-        param.requires_grad = False
+        param.requires_grad = True
         
     # Replace classification head
     num_ftrs = model.fc.in_features
@@ -114,9 +114,10 @@ def train_cnn():
     model = model.to(device)
     
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.fc.parameters(), lr=0.005, weight_decay=1e-4)
+    # Optimize all parameters with a lower learning rate suited for fine-tuning
+    optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=1e-4)
     
-    epochs = 3
+    epochs = 12
     print("\nStarting CNN Transfer Learning Training on 13 external classes...")
     
     for epoch in range(epochs):

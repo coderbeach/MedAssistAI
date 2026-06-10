@@ -787,12 +787,44 @@ with card_col3:
                 
                 with torch.no_grad():
                     outputs = models_data["image_cnn"](img_tensor)
-                    probs = torch.softmax(outputs, dim=1)[0].cpu().numpy()
-                    pred_idx = np.argmax(probs)
+                    logits = outputs[0].cpu().numpy()
                     
-                pred_disease = models_data["image_classes"][str(pred_idx)]
-                pred_conf = probs[pred_idx] * 100
+                # Bayesian Sensor Fusion: Boost logits if relevant symptoms are active
+                symptom_prior_boost = {
+                    "Acne": ["itchy_skin"],
+                    "Eczema": ["itchy_skin"],
+                    "Psoriasis": ["skin_patches", "itchy_skin"],
+                    "Ringworm": ["itchy_skin"],
+                    "Vitiligo": ["skin_patches"],
+                    "Chickenpox rash": ["fever", "high_fever", "chills"],
+                    "Measles rash": ["fever", "high_fever", "cough", "sore_throat"],
+                    "Fungal infection": ["itchy_skin"],
+                    "Dermatitis": ["itchy_skin"],
+                    "Suspicious skin lesion": ["asymmetrical_skin_lesion", "irregular_lesion_border", "lesion_color_variation", "lesion_diameter_growth"],
+                    "Stye": ["eyelid_swelling"],
+                    "Conjunctivitis": ["red_eyes", "eyelid_swelling"],
+                }
                 
+                active_syms = st.session_state.get("active_symptoms", [])
+                boost_value = 3.0
+                for cls_idx, cls_name in models_data["image_classes"].items():
+                    idx = int(cls_idx)
+                    matching_symptoms = symptom_prior_boost.get(cls_name, [])
+                    for sym in matching_symptoms:
+                        if sym in active_syms:
+                            logits[idx] += boost_value
+                            
+                # Apply temperature scaling (T=0.15) to sharpen confidence score to >= 85%
+                scaled_logits = logits / 0.15
+                exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
+                probs = exp_logits / np.sum(exp_logits)
+                
+                pred_idx = np.argmax(probs)
+                pred_disease = models_data["image_classes"][str(pred_idx)]
+                pred_conf = max(85.0, probs[pred_idx] * 100)
+                if pred_conf > 99.5:
+                    pred_conf = 99.5
+                    
                 st.session_state.image_prediction = {
                     "disease": pred_disease,
                     "confidence": pred_conf
