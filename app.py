@@ -16,6 +16,170 @@ from train_specialized_model import SpecializedMLP
 from llm_inference import MedicalChatbot
 from generate_report import get_test_recommendations, check_critical_alert
 
+# Ensure voice assistant packages are installed
+try:
+    import sounddevice as sd
+    import soundfile as sf
+    from gtts import gTTS
+    import pyttsx3
+    import speech_recognition as sr
+    import edge_tts
+except ImportError:
+    import subprocess
+    import sys
+    print("Installing voice assistant packages...")
+    try:
+        # Use uv if available as it is faster and works without pip module in venv
+        subprocess.check_call(["uv", "pip", "install", "sounddevice", "soundfile", "gTTS", "pyttsx3", "SpeechRecognition", "edge-tts"])
+    except Exception:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "sounddevice", "soundfile", "gTTS", "pyttsx3", "SpeechRecognition", "edge-tts"])
+    import sounddevice as sd
+    import soundfile as sf
+    from gtts import gTTS
+    import pyttsx3
+    import speech_recognition as sr
+    import edge_tts
+
+def speak_text_python(text):
+    import os
+    import time
+    import re
+    os.makedirs("./temp", exist_ok=True)
+    
+    # Clean up old reply files
+    for f in os.listdir("./temp"):
+        if f.startswith("reply_") and f.endswith((".mp3", ".wav")):
+            try:
+                os.remove(os.path.join("./temp", f))
+            except Exception:
+                pass
+                
+    clean_text = re.sub(r'[*_#`\-]+', ' ', text)
+    
+    # Try high-quality Edge TTS Indian English Male voice first
+    try:
+        import asyncio
+        import edge_tts
+        output_path = os.path.join("./temp", f"reply_{int(time.time())}.mp3")
+        communicate = edge_tts.Communicate(clean_text, "en-IN-PrabhatNeural")
+        asyncio.run(communicate.save(output_path))
+        return output_path
+    except Exception as e:
+        print(f"Edge TTS error: {e}. Trying gTTS fallback.")
+        # Fallback to gTTS (Female Indian English)
+        try:
+            from gtts import gTTS
+            tts = gTTS(text=clean_text, lang='en', tld='co.in')
+            output_path = os.path.join("./temp", f"reply_{int(time.time())}.mp3")
+            tts.save(output_path)
+            return output_path
+        except Exception as ge:
+            print(f"gTTS error: {ge}. Falling back to pyttsx3 offline engine.")
+            try:
+                import pyttsx3
+                engine = pyttsx3.init()
+                engine.setProperty('rate', 150)
+                engine.setProperty('volume', 0.9)
+                
+                voices = engine.getProperty('voices')
+                male_voice = None
+                
+                # Prioritize SAPI5 male Indian English voice "Ravi"
+                for v in voices:
+                    if 'ravi' in v.name.lower():
+                        male_voice = v.id
+                        break
+                        
+                # Fallback to general SAPI5 male voice "David"
+                if not male_voice:
+                    for v in voices:
+                        if 'david' in v.name.lower():
+                            male_voice = v.id
+                            break
+                            
+                # Fallback to any voice with male gender tag
+                if not male_voice:
+                    for v in voices:
+                        gender = getattr(v, 'gender', '').lower() if hasattr(v, 'gender') else ''
+                        if 'male' in v.name.lower() or gender == 'male':
+                            male_voice = v.id
+                            break
+                            
+                # Fallback to any Indian voice
+                if not male_voice:
+                    for v in voices:
+                        if 'india' in v.name.lower() or 'heera' in v.name.lower():
+                            male_voice = v.id
+                            break
+                            
+                if male_voice:
+                    engine.setProperty('voice', male_voice)
+                    
+                output_path = os.path.join("./temp", f"reply_{int(time.time())}.wav")
+                engine.save_to_file(clean_text, output_path)
+                engine.runAndWait()
+                return output_path
+            except Exception as ex:
+                print(f"pyttsx3 fallback error: {ex}")
+                return None
+
+def transcribe_indian_audio_python(audio_path, api_key, language="English (India)", hints=""):
+    import base64
+    import requests
+    import os
+    
+    if not os.path.exists(audio_path):
+        return ""
+        
+    mime_type = "audio/wav"
+    with open(audio_path, "rb") as f:
+        audio_data = base64.b64encode(f.read()).decode('utf-8')
+        
+    prompt = f"""You are VaniScribe, an expert AI transcriber. Transcribe the uploaded audio recording exactly as spoken with near-perfect accuracy.
+The speaker speaks in {language} (optimized for Indian accent, vocabulary, and slang).
+
+CRITICAL ACCENT RESOLUTION:
+Correct common pronunciation-based transcription mistakes typical of Indian accents:
+- Indian number representations: e.g. change "ten lakhs" or "fifty crores" to standard formatting (Rs 10,00,000 / Rs 50,00,000) or keep the written word intact as spoken, avoiding confusion with words like "lack" or "crow".
+- Indian specific spelling: e.g. "Aadhaar", "Pooja", "Dhaba", "Jugaad".
+- Do not mix Indian English accents with wrong spellings.
+
+{f'CONTEXT KEYWORDS/NAMES SPOKEN (Prioritize matching these): {hints}' if hints else ''}
+
+Format output with proper paragraph breaks and capitalization. Deliver ONLY the final transcribed text. Do not provide notes, explanations, or labels."""
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "inlineData": {
+                            "mimeType": mime_type,
+                            "data": audio_data
+                        }
+                    },
+                    {
+                        "text": prompt
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.15
+        }
+    }
+    
+    response = requests.post(url, headers=headers, json=payload)
+    if response.status_code == 200:
+        data = response.json()
+        try:
+            return data['candidates'][0]['content']['parts'][0]['text'].strip()
+        except Exception:
+            pass
+    return ""
+
 def format_symptom_name(sym):
     if sym == "asymptomatic":
         return "Asymptomatic (No Symptoms)"
@@ -529,6 +693,10 @@ if "uploaded_image_path" not in st.session_state:
     st.session_state.uploaded_image_path = None
 if "pdf_summary" not in st.session_state:
     st.session_state.pdf_summary = None
+if "last_spoken_message_index" not in st.session_state:
+    st.session_state.last_spoken_message_index = -1
+if "gemini_api_key" not in st.session_state:
+    st.session_state.gemini_api_key = ""
 
 # Helper mock summaries function for PDF Summarizer
 def generate_pdf_summary(filename):
@@ -577,6 +745,8 @@ with demo_col2:
         placeholder="Enter age (e.g. 30)...",
         key="patient_age_input_field"
     )
+
+# Intercept query parameter removed - Voice processing done locally in Python
 
 # =========================================================
 # BAYMAX AI ASSISTANT SECTION
@@ -719,6 +889,90 @@ if st.session_state.show_chatbot:
             st.session_state.scroll_to = "dashboard"
             st.rerun()
                 
+    # Voice input trigger (Python version)
+    mic_col1, mic_col2 = st.columns([2.5, 1])
+    with mic_col1:
+        st.session_state.gemini_api_key = st.text_input(
+            "Gemini API Key (Optional for AI Refinement):",
+            type="password",
+            value=st.session_state.get("gemini_api_key", ""),
+            key="gemini_key_input_field",
+            help="Paste your Gemini API key here to enable VaniScribe advanced accent corrections."
+        )
+    with mic_col2:
+        st.write("") # spacing
+        st.write("") # spacing
+        if st.button("🎙️ Speak", key="btn_speak_python", use_container_width=True):
+            try:
+                import sounddevice as sd
+                import soundfile as sf
+                import numpy as np
+                import tempfile
+                
+                fs = 16000
+                duration = 5
+                
+                with st.spinner("🎙️ Listening... Speak now for 5 seconds!"):
+                    recording = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='float32')
+                    sd.wait()
+                    
+                temp_dir = tempfile.gettempdir()
+                audio_path = os.path.join(temp_dir, "input_speech.wav")
+                sf.write(audio_path, recording, fs)
+                
+                with st.spinner("🧠 Processing speech..."):
+                    api_key = st.session_state.get("gemini_key_input_field", "")
+                    
+                    transcription = ""
+                    if api_key:
+                        transcription = transcribe_indian_audio_python(audio_path, api_key)
+                    
+                    # Fallback to SpeechRecognition if no API key or if Gemini failed
+                    if not transcription:
+                        try:
+                            import speech_recognition as sr
+                            r = sr.Recognizer()
+                            with sr.AudioFile(audio_path) as source:
+                                audio = r.record(source)
+                            transcription = r.recognize_google(audio, language="en-IN")
+                        except Exception as sr_err:
+                            if api_key:
+                                st.error(f"Gemini transcription failed and fallback speech recognition failed: {sr_err}")
+                            else:
+                                st.error(f"Speech recognition fallback failed: {sr_err}. Try entering your Gemini API Key in the field.")
+                                
+                    if transcription:
+                        st.session_state.chat_messages.append({"role": "user", "content": transcription})
+                        st.session_state.prompt_count += 1
+                        
+                        uploaded_pdf_file = st.session_state.get("pdf_report_uploader")
+                        uploaded_pdf_name = uploaded_pdf_file.name if uploaded_pdf_file else None
+                        patient_name_val = st.session_state.get("patient_name_input_field", st.session_state.patient_name)
+                        
+                        reply, new_syms, new_preds, new_img_pred, new_pdf_sum = chatbot.generate_chat_response(
+                            user_message=transcription,
+                            chat_history=st.session_state.chat_messages[:-1],
+                            active_symptoms=st.session_state.active_symptoms,
+                            predictions=st.session_state.predictions,
+                            image_prediction=st.session_state.image_prediction,
+                            pdf_summary=st.session_state.pdf_summary,
+                            models_data=models_data,
+                            uploaded_image_path=st.session_state.get("uploaded_image_path"),
+                            uploaded_pdf_name=uploaded_pdf_name,
+                            patient_name=patient_name_val
+                        )
+                        
+                        st.session_state.active_symptoms = new_syms
+                        st.session_state.predictions = new_preds
+                        st.session_state.image_prediction = new_img_pred
+                        st.session_state.pdf_summary = new_pdf_sum
+                        
+                        st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+                        st.session_state.scroll_to = "dashboard"
+                        st.rerun()
+            except Exception as e:
+                st.error(f"Microphone recording failed: {e}. Please check your audio drivers or microphone connection.")
+    
     # Chat Input
     if chat_input := st.chat_input("Ask Baymax a health question..."):
         st.session_state.chat_messages.append({"role": "user", "content": chat_input})
@@ -1270,3 +1524,19 @@ if "scroll_to" in st.session_state and st.session_state.scroll_to:
             }}, 300);
         </script>
     """, height=0, width=0)
+
+# ---------------------------------------------------------
+# Voice Assistant Text-to-Speech Output Handler
+# ---------------------------------------------------------
+if "chat_messages" in st.session_state:
+    latest_assistant_idx = -1
+    for idx, msg in enumerate(st.session_state.chat_messages):
+        if msg["role"] == "assistant":
+            latest_assistant_idx = idx
+            
+    if latest_assistant_idx > st.session_state.last_spoken_message_index:
+        st.session_state.last_spoken_message_index = latest_assistant_idx
+        speech_content = st.session_state.chat_messages[latest_assistant_idx]["content"]
+        audio_path = speak_text_python(speech_content)
+        if audio_path:
+            st.audio(audio_path, autoplay=True)

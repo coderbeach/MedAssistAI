@@ -2,16 +2,9 @@ import os
 import json
 import pickle
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report
+from torch.utils.data import Dataset
 
 # Set random seed for absolute reproducibility
 np.random.seed(42)
@@ -95,6 +88,7 @@ def build_dataset():
     This creates an extremely high-accuracy dataset with zero contradictions,
     ideal for validating model execution and getting 100% precision/recall.
     """
+    import pandas as pd
     print("Building specialized clinical dataset...")
     rows = []
     
@@ -123,6 +117,14 @@ def build_dataset():
     return df
 
 def train_and_evaluate():
+    from sklearn.preprocessing import LabelEncoder
+    from sklearn.model_selection import train_test_split
+    from sklearn.tree import DecisionTreeClassifier
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, classification_report
+    from torch.utils.data import DataLoader
+    import torch.optim as optim
+
     # 1. Build and split data
     df = build_dataset()
     

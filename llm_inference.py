@@ -3,7 +3,6 @@ import re
 import json
 import torch
 import random
-from transformers import AutoTokenizer, AutoModelForCausalLM
 
 MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -21,6 +20,7 @@ class MedicalChatbot:
         if self.use_llm:
             try:
                 print(f"Loading conversational LLM: {MODEL_NAME} on {device}...")
+                from transformers import AutoTokenizer, AutoModelForCausalLM
                 self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
                 self.model = AutoModelForCausalLM.from_pretrained(
                     MODEL_NAME, 
