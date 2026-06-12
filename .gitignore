@@ -5,3 +5,7 @@ temp/
 .system_generated/
 test_report.pdf
 MediAssist_Clinical_Report.pdf
+notebooks/
+data/real_clinical_images/
+data/external_images/
+data/skin_images/
