@@ -1,0 +1,79 @@
+=========================================================
+       MEDICAL IMAGE DATASET VALIDATION REPORT
+=========================================================
+
+## 1. Class Distribution and Splits
+Class Name                | Train   | Val     | Test    | Total  
+-----------------------------------------------------------------
+acne                      | 54      | 11      | 13      | 78     
+chickenpox                | 27      | 5       | 7       | 39     
+conjunctivitis            | 27      | 5       | 7       | 39     
+dermatitis                | 49      | 10      | 11      | 70     
+eczema                    | 35      | 7       | 8       | 50     
+fungal_infection          | 23      | 5       | 6       | 34     
+measles                   | 14      | 3       | 3       | 20     
+normal_eye                | 18      | 3       | 5       | 26     
+psoriasis                 | 28      | 6       | 6       | 40     
+ringworm                  | 25      | 5       | 7       | 37     
+stye                      | 15      | 3       | 4       | 22     
+suspicious_lesion         | 49      | 10      | 11      | 70     
+vitiligo                  | 116     | 25      | 26      | 167    
+-----------------------------------------------------------------
+TOTAL                     | 480     | 98      | 114     | 692    
+
+## 2. Duplicate Detection Report
+Total duplicates detected and removed: 49
+  - Dup: acne_8caaafcc097666db95c185644d52f000.png -> matches Original: acne_041b472b0655c74dcff1f9687b63742c.jpg
+  - Dup: acne_8f689fab950837d8ef82bc62544eb675.png -> matches Original: acne_041b472b0655c74dcff1f9687b63742c.jpg
+  - Dup: eczema_external_images_9a0b6b3fd495.jpg -> matches Original: dermatitis_external_images_22c547d52b08.jpg
+  - Dup: psoriasis_external_images_5272888729b0.jpg -> matches Original: eczema_external_images_9fc180c98ade.jpg
+  - Dup: psoriasis_external_images_9d3333218a65.jpg -> matches Original: eczema_external_images_b749584e3b84.jpg
+  - Dup: psoriasis_skin_images_0ab5053f4ba7.jpg -> matches Original: eczema_skin_images_b874d489778f.jpg
+  - Dup: ringworm_external_images_447e60def1c6.jpg -> matches Original: eczema_external_images_b749584e3b84.jpg
+  - Dup: ringworm_external_images_b2bbb0283b7e.jpg -> matches Original: fungal_infection_external_images_64ed4145ed4d.jpg
+  - Dup: stye_external_images_942d2541f825.jpg -> matches Original: stye_external_images_36cfe8c43484.jpg
+  - Dup: suspicious_lesion_external_images_4aa16e73808c.jpg -> matches Original: suspicious_lesion_external_images_3547e06a2675.jpg
+  - Dup: suspicious_lesion_external_images_78762f0d4c1f.jpg -> matches Original: suspicious_lesion_external_images_3547e06a2675.jpg
+  - Dup: suspicious_lesion_external_images_93c1ef90dc86.jpg -> matches Original: suspicious_lesion_external_images_3547e06a2675.jpg
+  - Dup: suspicious_lesion_external_images_ab472b6685d1.jpg -> matches Original: suspicious_lesion_external_images_3547e06a2675.jpg
+  - Dup: suspicious_lesion_external_images_c03f3c3ab79f.jpg -> matches Original: suspicious_lesion_external_images_3547e06a2675.jpg
+  - Dup: suspicious_lesion_external_images_c398c391e976.jpg -> matches Original: suspicious_lesion_external_images_3547e06a2675.jpg
+  - Dup: suspicious_lesion_external_images_dcc29f4aadd3.jpg -> matches Original: suspicious_lesion_external_images_3547e06a2675.jpg
+  - Dup: suspicious_lesion_external_images_fb9972eb9762.jpg -> matches Original: suspicious_lesion_external_images_3547e06a2675.jpg
+  - Dup: vitiligo_external_images_4026b60c2681.jpg -> matches Original: vitiligo_external_images_190fa1085580.jpg
+  - Dup: vitiligo_external_images_4807f7e760d9.jpg -> matches Original: vitiligo_external_images_3ee24f1ac555.jpg
+  - Dup: vitiligo_external_images_4ca62f572d9f.jpg -> matches Original: vitiligo_external_images_15ad828b32d3.jpg
+  - Dup: vitiligo_external_images_52a23f143d5d.jpg -> matches Original: vitiligo_external_images_315d94f3ae3e.jpg
+  - Dup: vitiligo_external_images_5378e9e91296.jpg -> matches Original: vitiligo_external_images_376009b07a9a.jpg
+  - Dup: vitiligo_external_images_5e1a379a7cb4.jpg -> matches Original: vitiligo_external_images_2427bae4128c.jpg
+  - Dup: vitiligo_external_images_64fbd6e9a559.jpg -> matches Original: vitiligo_external_images_1d11f0b85588.jpg
+  - Dup: vitiligo_external_images_6c9fae9db408.jpg -> matches Original: vitiligo_external_images_190fa1085580.jpg
+  - Dup: vitiligo_external_images_6d6cd481352e.jpg -> matches Original: vitiligo_external_images_1b0e2118286d.jpg
+  - Dup: vitiligo_external_images_8b2baa9464c5.jpg -> matches Original: vitiligo_external_images_65dd07aa1c8c.jpg
+  - Dup: vitiligo_external_images_8b64e09f5335.jpg -> matches Original: vitiligo_external_images_6588aa0114b3.jpg
+  - Dup: vitiligo_external_images_8d0385042ce6.jpg -> matches Original: vitiligo_external_images_4c48b5c73b2a.jpg
+  - Dup: vitiligo_external_images_8fb169ffdbed.jpg -> matches Original: vitiligo_external_images_022e479fa084.jpg
+  - Dup: vitiligo_external_images_91c044aacffc.jpg -> matches Original: vitiligo_external_images_190fa1085580.jpg
+  - Dup: vitiligo_external_images_a2d62fb3628f.jpg -> matches Original: vitiligo_external_images_60061bb0535e.jpg
+  - Dup: vitiligo_external_images_a73085ceaa91.jpg -> matches Original: vitiligo_external_images_646bc6f3c770.jpg
+  - Dup: vitiligo_external_images_a830b842bea1.jpg -> matches Original: vitiligo_external_images_41552a5c8864.jpg
+  - Dup: vitiligo_external_images_a83e016c8a59.jpg -> matches Original: vitiligo_external_images_7b5330027d49.jpg
+  - Dup: vitiligo_external_images_a9c94dc002e3.jpg -> matches Original: vitiligo_external_images_6eff28b2bc17.jpg
+  - Dup: vitiligo_external_images_b2f5485a91c0.jpg -> matches Original: vitiligo_external_images_696f63cb207e.jpg
+  - Dup: vitiligo_external_images_bc6dc1bf1973.jpg -> matches Original: vitiligo_external_images_0fbfccd9f883.jpg
+  - Dup: vitiligo_external_images_c3fe8f6fe170.jpg -> matches Original: vitiligo_external_images_0796450c2265.jpg
+  - Dup: vitiligo_external_images_ca1517ed0989.jpg -> matches Original: vitiligo_external_images_5ec7407e03d7.jpg
+  - Dup: vitiligo_external_images_cc367438fecc.jpg -> matches Original: vitiligo_external_images_3ee24f1ac555.jpg
+  - Dup: vitiligo_external_images_d71627927d51.jpg -> matches Original: vitiligo_external_images_7db1575e5af8.jpg
+  - Dup: vitiligo_external_images_d74b7bdcd9de.jpg -> matches Original: vitiligo_external_images_79465b27b975.jpg
+  - Dup: vitiligo_external_images_e8653d78001a.jpg -> matches Original: vitiligo_external_images_0ff2caf2cf21.jpg
+  - Dup: vitiligo_external_images_ec16ca99f3c6.jpg -> matches Original: vitiligo_external_images_190fa1085580.jpg
+  - Dup: vitiligo_external_images_ecda4e14babf.jpg -> matches Original: vitiligo_external_images_3a52baec6081.jpg
+  - Dup: vitiligo_external_images_ef3204081f97.jpg -> matches Original: vitiligo_external_images_3ee24f1ac555.jpg
+  - Dup: vitiligo_external_images_efca69af2765.jpg -> matches Original: vitiligo_external_images_7b5330027d49.jpg
+  - Dup: vitiligo_external_images_fa2403ea59ff.jpg -> matches Original: vitiligo_external_images_f46f038243de.jpg
+
+## 3. Data Leakage Risk Assessment
+- Perceptual hashing (dhash) was run recursively on all files.
+- Duplicate files across different splits have been entirely pruned.
+- Stratified split logic was executed. Held-out test sets are completely isolated.

@@ -1,0 +1,14 @@
+model_name: "resnet50"
+num_classes: 13
+image_size: 224
+batch_size: 16
+weight_decay: 0.01
+dropout: 0.3
+seed: 42
+
+stage1:
+  epochs: 1
+  lr: 0.001
+  unfreeze_layers: ["fc"]
+
+aug_strength: "light"

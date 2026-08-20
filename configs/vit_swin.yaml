@@ -1,0 +1,25 @@
+model_name: "swin-tiny"
+hf_model_id: "microsoft/swin-tiny-patch4-window7-224"
+num_classes: 13
+image_size: 224
+batch_size: 8 # ViT models require smaller batch sizes for CPU memory management
+weight_decay: 0.05
+dropout: 0.2
+seed: 42
+
+stage1:
+  epochs: 5
+  lr: 0.0005
+  unfreeze_layers: ["classifier", "head"]
+
+stage2:
+  epochs: 8
+  lr: 0.00005
+  unfreeze_layers: ["layers.3", "classifier", "head"]
+
+stage3:
+  epochs: 4
+  lr: 0.00001
+  unfreeze_layers: ["all"]
+
+aug_strength: "light"

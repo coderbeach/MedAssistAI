@@ -226,14 +226,27 @@ def load_specialized_models():
     mlp_model.load_state_dict(torch.load(mlp_path, map_location=device))
     mlp_model.eval()
     
-    # Load ResNet-18 Image Classifier
+    # Load ResNet-50 Image Classifier
     try:
-        image_cnn = models.resnet18(weights=None)
+        image_cnn = models.resnet50(weights=None)
     except TypeError:
-        image_cnn = models.resnet18()
+        image_cnn = models.resnet50()
     num_ftrs = image_cnn.fc.in_features
-    image_cnn.fc = nn.Linear(num_ftrs, len(image_classes))
-    image_cnn.load_state_dict(torch.load(image_model_path, map_location=device))
+    image_cnn.fc = nn.Sequential(
+        nn.Dropout(p=0.3),
+        nn.Linear(num_ftrs, len(image_classes))
+    )
+    
+    # Load checkpoint dictionary safely
+    checkpoint = torch.load(image_model_path, map_location=device)
+    if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+        image_cnn.load_state_dict(checkpoint["model_state_dict"])
+        # Save calibrated temperature parameter in session state
+        st.session_state["calibrated_temperature"] = checkpoint.get("temperature", 1.3225)
+    else:
+        image_cnn.load_state_dict(checkpoint)
+        st.session_state["calibrated_temperature"] = 1.3225
+        
     image_cnn.to(device)
     image_cnn.eval()
     
@@ -1199,21 +1212,36 @@ with card_col3:
                         "It appears to be irrelevant or too indistinguishable. Please upload a clear clinical macro photo."
                     )
                 else:
-                    # Apply temperature scaling (T=0.12) to sharpen confidence score to >= 90%
-                    scaled_logits = logits / 0.12
+                    # Apply LBFGS-calibrated temperature scaling dynamically
+                    temp = st.session_state.get("calibrated_temperature", 1.3225)
+                    scaled_logits = logits / temp
                     exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
                     probs = exp_logits / np.sum(exp_logits)
                     
-                    pred_idx = np.argmax(probs)
-                    pred_disease = models_data["image_classes"][str(pred_idx)]
-                    pred_conf = max(90.0, probs[pred_idx] * 100)
-                    if pred_conf > 99.5:
-                        pred_conf = 99.5
+                    # Retrieve Top-3 predictions
+                    top_indices = np.argsort(probs)[::-1][:3]
+                    top_3_preds = []
+                    for rank_idx, class_idx in enumerate(top_indices):
+                        top_3_preds.append({
+                            "disease": models_data["image_classes"][str(class_idx)],
+                            "confidence": probs[class_idx] * 100
+                        })
                         
+                    pred_disease = top_3_preds[0]["disease"]
+                    pred_conf = top_3_preds[0]["confidence"]
+                    
                     st.session_state.image_prediction = {
                         "disease": pred_disease,
-                        "confidence": pred_conf
+                        "confidence": pred_conf,
+                        "top_3": top_3_preds
                     }
+                    
+                    # Format Top-3 display string
+                    top_3_str_list = []
+                    for idx, p_info in enumerate(top_3_preds):
+                        prefix = "⭐️ [TOP]" if idx == 0 else f"   [{idx+1}]"
+                        top_3_str_list.append(f"{prefix} **{p_info['disease']}** : {p_info['confidence']:.2f}%")
+                    top_3_str = "\n".join(top_3_str_list)
                     
                     # Append to Chatbot Context
                     tests = get_test_recommendations(pred_disease)
@@ -1230,9 +1258,11 @@ with card_col3:
                         advice = "I suggest seeing a dermatologist soon for professional verification."
                         
                     baymax_visual_response = (
-                        f"{alert_prefix}I have successfully scanned the uploaded image. "
-                        f"It matches **{pred_disease}** (model confidence: {pred_conf:.1f}%). "
-                        f"To confirm this, consider taking a **{tests_str}**. {advice} Stay strong! 💖"
+                        f"{alert_prefix}I have successfully scanned the uploaded image. Here are the top 3 calibrated class predictions:\n\n"
+                        f"{top_3_str}\n\n"
+                        f"To confirm this, consider taking a **{tests_str}**. {advice} Stay strong! 💖\n\n"
+                        f"⚠️ *Research Disclaimer: This is an experimental image classification tool. It is NOT a medical diagnosis device "
+                        f"and should not replace professional clinical examination.*"
                     )
                 
                 st.session_state.chat_messages.append({"role": "user", "content": "Scan the uploaded clinical image."})

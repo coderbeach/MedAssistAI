@@ -9,3 +9,5 @@ notebooks/
 data/real_clinical_images/
 data/external_images/
 data/skin_images/
+dataset/
+models/resnet50_run/
