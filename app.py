@@ -1133,6 +1133,22 @@ with card_col3:
     
     uploaded_image = st.file_uploader("Upload skin/eye image:", type=["jpg", "jpeg", "png"], key="image_lesion_uploader")
     
+    # Preloaded manual test images dropdown
+    st.markdown('<p style="font-size:0.95rem; margin-bottom:5px; font-weight:bold;">Or select a manual test image from Kaggle dataset:</p>', unsafe_allow_html=True)
+    manual_test_base = "./downloads/manual_test"
+    test_options = ["-- Select preloaded image --"]
+    
+    if os.path.exists(manual_test_base):
+        for root, dirs, files in os.walk(manual_test_base):
+            for file in files:
+                if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    rel_dir = os.path.basename(root)
+                    test_options.append(f"{rel_dir}/{file}")
+                    
+    selected_preloaded = st.selectbox("Choose a manual test image:", options=test_options, label_visibility="collapsed", key="preloaded_image_selector")
+    
+    selected_image_path = None
+    
     if uploaded_image:
         os.makedirs("./temp", exist_ok=True)
         # Clean up old temporary files in the temp directory to prevent Windows file locking issues
@@ -1152,13 +1168,22 @@ with card_col3:
         image.save(temp_image_path)
         st.session_state.uploaded_image_path = temp_image_path
         st.image(image, caption="Image Preview", width=160)
+        selected_image_path = temp_image_path
+        
+    elif selected_preloaded != "-- Select preloaded image --":
+        selected_image_path = os.path.join(manual_test_base, selected_preloaded)
+        image = Image.open(selected_image_path).convert("RGB")
+        st.session_state.uploaded_image_path = selected_image_path
+        st.image(image, caption=f"Selected: {selected_preloaded}", width=160)
         
     st.write("")
     if st.button("📷 Scan Skin/Eye Image", key="btn_scan_image"):
-        if not uploaded_image:
-            st.warning("Please upload an image first.")
+        if not selected_image_path and not st.session_state.get("uploaded_image_path"):
+            st.warning("Please upload or select an image first.")
         else:
-            with st.spinner("Scanning image with PyTorch ResNet-18..."):
+            with st.spinner("Scanning image with PyTorch ResNet-50..."):
+                active_path = selected_image_path if selected_image_path else st.session_state.uploaded_image_path
+                image = Image.open(active_path).convert("RGB")
                 val_transform = transforms.Compose([
                     transforms.Resize(256),
                     transforms.CenterCrop(224),

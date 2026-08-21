@@ -1,0 +1,8 @@
+image_name,dataset_class,expected_project_class,predicted_class,confidence,correct
+acne/acne_test_01.jpeg,Acne,Acne,,,
+eczema/eczema_test_01.jpeg,Eczema,Eczema,,,
+psoriasis/psoriasis_test_01.jpeg,Psoriasis,Psoriasis,,,
+ringworm/ringworm_test_01.jpeg,Tinea,Ringworm,,,
+vitiligo/vitiligo_test_01.jpeg,Vitiligo,Vitiligo,,,
+fungal_infection/fungal_infection_test_01.jpeg,Candidiasis,Fungal Infection,,,
+suspicious_skin_lesion/suspicious_skin_lesion_test_01.jpeg,SkinCancer,Suspicious Skin Lesion,,,
